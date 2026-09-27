@@ -377,6 +377,20 @@ COCO 사전학습 RTMDet의 크기(tiny, s, m, l, x)에 따라 이 프로젝트�
 
 Top-1은 단일 예측의 정확도입니다. Top-2는 최대 두 후보 중 정답이 있는 비율이며 단일 분류 정확도와 같은 지표가 아닙니다. Top-2의 추가 포함은 같은 모델의 Top-1보다 정답을 더 포함한 이미지 수입니다.
 
+### MVP 성능 목표와 현재 결과
+
+RTMDet 이후 MVP 판정은 **Top-1 이미지 단위**로 평가합니다. 전체 정확도(ACC)는 `computer`·`book`·`other` 3개 그룹의 정답 비율입니다. FPR과 FNR은 `computer`·`book`을 **MVP 대상**, `other`를 **비대상**으로 묶은 이진 지표입니다. FPR은 비대상을 대상으로 잘못 수락한 비율, FNR은 대상을 `other`로 잘못 거절한 비율입니다. 아래 목표는 이진 FPR·FNR에 적용하며, 뒤의 카테고리별 one-vs-rest FPR·FNR과 분모가 다릅니다.
+
+| 지표 | MVP 목표 | RTMDet-x Top-1 측정값 | 판정 |
+|---|---:|---:|---|
+| 전체 정확도(ACC) | 90% 이상 | **94.09%** (350/372) | 달성 |
+| MVP FPR | 5% 이하 | **0.99%** (1/101) | 달성 |
+| MVP FNR | 5% 이하 | **7.75%** (21/271) | 미달 |
+
+![RTMDet 모델별 Top-1 정확도와 MVP FPR·FNR](docs/assets/rtmdet_top1_metrics.png)
+
+그래프의 점선은 각 목표치입니다. 다섯 모델의 수치는 동일한 372장에 대한 Top-1 결과이며, FPR·FNR은 `other`를 기준으로 묶어 계산했습니다.
+
 ### 결과 분석
 
 **크기가 커질수록 성능이 항상 오르지는 않았습니다.** x의 Top-1은 가장 높지만, l은 m보다 정확도가 0.54%p 낮고 이미지당 처리 시간은 약 1.74배 길었습니다. tiny에서 x로 바꾸면 Top-1 정답이 24장 늘어나는 대신 CPU 처리 시간은 약 7.65배가 됩니다.
@@ -437,6 +451,14 @@ Top-1은 단일 예측의 정확도입니다. Top-2는 최대 두 후보 중 정
 | book | Top-2 | 88.17% | 61.74% | 100.00% | 14.62% | 0.00% |
 
 이번 스프린트에는 단일 예측 정확도가 가장 높은 **RTMDet-x Top-1**을 선택했습니다. `book` Top-1 FNR도 x가 14.08%(10/71)로 m의 21.13%(15/71)보다 낮습니다. CPU 지연은 m보다 약 2.80배이므로 운영 환경의 지연 시간은 별도로 측정해야 합니다.
+
+이진 MVP FNR 목표는 **미달**입니다. 대상 이미지 271장 중 `computer` 11장과 `book` 10장이 `other`로 판정됐습니다. 초기에는 선택된 사용자가 비대상 물체를 촬영할 가능성이 낮다는 운영 가정 아래 RTMDet-x Top-1로 진행합니다. 이 가정은 비대상 입력과 그에 따른 거짓 수락의 실제 빈도에 관한 것이며, 대상 이미지를 놓치는 FNR 7.75%를 줄이거나 목표 달성으로 바꾸지는 않습니다. 운영 데이터에서 대상 누락과 비대상 수락을 각각 다시 확인해야 합니다.
+
+#### RTMDet-x Top-1 혼동행렬
+
+![RTMDet-x Top-1 혼동행렬](docs/assets/rtmdet_x_top1_confusion_matrix.png)
+
+행은 실제 라벨, 열은 예측 라벨이며 각 칸은 이미지 수와 해당 실제 라벨 행에서의 비율입니다. 예를 들어 `computer → other` 11장, `book → other` 10장이 MVP FNR의 분자 21장입니다. `other → book` 1장이 MVP FPR의 분자입니다. 모델별 원본 혼동행렬은 [집계 CSV](docs/reports/rtmdet_top1_confusion_matrices.csv)에 보관했고, `python scripts/plot_rtmdet_results.py`로 두 그래프를 다시 생성할 수 있습니다.
 
 폴더별 주 라벨 하나로 평가했으므로 사진에 대상이 여러 개면 FPR이 과대 집계될 수 있습니다. 이 결과는 이미지 수준 비교이며 객체 탐지 mAP나 실제 서비스 오류율이 아닙니다. [크기별 실험 보고서](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/README.md) · [집계 CSV](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/comparison.csv) · [설정·가중치 해시](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/comparison.json)
 
