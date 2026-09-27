@@ -352,7 +352,7 @@ Top-2는 정답을 40장 더 후보에 넣지만 단일 분류 정확도가 아�
 | book | Top-1 | 93.55% | 97.96% | 67.61% | 0.33% | 32.39% |
 | book | Top-2 | 80.38% | 49.30% | 98.59% | 23.92% | 1.41% |
 
-Top-2에서 전체 정답 포함률은 올랐지만 `book`의 이진 Accuracy는 93.55%에서 80.38%로 내려갔습니다. 참양성은 48장에서 70장으로 늘었지만 거짓양성도 1장에서 72장으로 늘었기 때문입니다. [Top-K 실험 보고서](https://github.com/jgi0117/side_project_product_classification/blob/experiment/rtmdet-topk/docs/rtmdet-topk/drive-20260922/README.md)에 상세 결과가 있습니다.
+Top-2에서 전체 정답 포함률은 올랐지만 `book`의 이진 Accuracy는 93.55%에서 80.38%로 내려갔습니다. 참양성은 48장에서 70장으로 늘었지만 거짓양성도 1장에서 72장으로 늘었기 때문입니다. [Top-K 실험 보고서](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-topk/docs/rtmdet-topk/drive-20260922/README.md)에 상세 결과가 있습니다.
 
 ## 3. RTMDet 모델 크기별 Top-1·Top-2 실험
 
@@ -438,7 +438,7 @@ Top-1은 단일 예측의 정확도입니다. Top-2는 최대 두 후보 중 정
 
 이번 스프린트에는 단일 예측 정확도가 가장 높은 **RTMDet-x Top-1**을 선택했습니다. `book` Top-1 FNR도 x가 14.08%(10/71)로 m의 21.13%(15/71)보다 낮습니다. CPU 지연은 m보다 약 2.80배이므로 운영 환경의 지연 시간은 별도로 측정해야 합니다.
 
-폴더별 주 라벨 하나로 평가했으므로 사진에 대상이 여러 개면 FPR이 과대 집계될 수 있습니다. 이 결과는 이미지 수준 비교이며 객체 탐지 mAP나 실제 서비스 오류율이 아닙니다. [크기별 실험 보고서](https://github.com/jgi0117/side_project_product_classification/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/README.md) · [집계 CSV](https://github.com/jgi0117/side_project_product_classification/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/comparison.csv) · [설정·가중치 해시](https://github.com/jgi0117/side_project_product_classification/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/comparison.json)
+폴더별 주 라벨 하나로 평가했으므로 사진에 대상이 여러 개면 FPR이 과대 집계될 수 있습니다. 이 결과는 이미지 수준 비교이며 객체 탐지 mAP나 실제 서비스 오류율이 아닙니다. [크기별 실험 보고서](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/README.md) · [집계 CSV](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/comparison.csv) · [설정·가중치 해시](https://github.com/the-dodu-team/AI_Engineer/blob/experiment/rtmdet-model-size/docs/rtmdet-model-size/model-size-20260927/comparison.json)
 
 ## 4. RTMDet-x Top-1 FastAPI
 
