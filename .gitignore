@@ -22,6 +22,7 @@ sample/
 # Generated benchmark artifacts
 models/weights/
 models/exported/
+models/temporary/
 outputs/
 
 # Local RTMDet API environment and downloaded source trees
