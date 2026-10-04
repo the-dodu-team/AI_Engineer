@@ -1,4 +1,4 @@
-"""Build the PM-facing RTMDet versus latest-detector comparison report."""
+"""Build the RTMDet versus latest-detector comparison report."""
 
 from __future__ import annotations
 
@@ -185,23 +185,24 @@ def build_readme(rows: dict[str, dict[str, str]]) -> None:
     selected = sorted(DECISION_MODELS, key=lambda model: float(rows[model]["accuracy"]), reverse=True)
 
     lines = [
-        "# PM 보고: RTMDet 모델 크기별 결과 vs 최신 탐지 모델",
+        "# RTMDet 모델 크기별 결과 vs 최신 탐지 모델",
         "",
-        "> **제안: RT-DETRv2-R50을 다음 PoC 모델로 채택하고, RTMDet-x는 기준 모델로 유지합니다.**",
-        "> 정확도는 95.70%로 RTMDet-x보다 6장을 더 맞혔지만, FNR 5% 목표와 독립 검증은 아직 통과하지 못했습니다.",
+        "> **전체 정확도 1위는 RT-DETRv2-R50입니다.**",
+        "> 372장 중 356장을 맞혀 RTMDet-x보다 6장 많았고, FNR은 7.75%에서 5.54%로 낮았습니다.",
         "",
         "![RTMDet와 최신 모델 비교 대시보드](docs/reports/pm-rtmdet-vs-latest/pm-overview.png)",
         "",
-        "## 한눈에 보는 의사결정",
+        "## 결과 요약",
         "",
-        "| 질문 | 답변 | 판단 |",
-        "|---|---|---|",
-        f"| RTMDet보다 정확한 모델이 있는가? | **있음. RT-DETRv2-R50 {pct(recommendation['accuracy']):.2f}%** vs RTMDet-x {pct(baseline['accuracy']):.2f}% | 다음 검증 진행 |",
-        f"| 개선폭은 충분한가? | **+6장, +{pct(recommendation['accuracy']) - pct(baseline['accuracy']):.2f}%p** | 방향은 긍정적이나 통계적으로 미확정 |",
-        f"| 대상 누락이 줄었는가? | FNR **{pct(baseline['fnr']):.2f}% → {pct(recommendation['fnr']):.2f}%** | 21장 → 15장으로 개선 |",
-        f"| 비대상 오수락은 늘었는가? | FPR **{pct(baseline['fpr']):.2f}% → {pct(recommendation['fpr']):.2f}%** | 동일, 각 1장 |",
-        "| 상업 적용이 가능한가? | RT-DETRv2-R50·RTMDet은 Apache-2.0 계열 | 고지 조건을 지키면 유리 |",
-        "| 바로 제품에 적용할 수 있는가? | **아직 아님** | 독립 데이터·임계값·실서비스 속도 검증 필요 |",
+        "| 항목 | 결과 |",
+        "|---|---|",
+        f"| 전체 정확도 1위 | **RT-DETRv2-R50 {pct(recommendation['accuracy']):.2f}%** |",
+        f"| RTMDet 정확도 1위 | **RTMDet-x {pct(baseline['accuracy']):.2f}%** |",
+        f"| 두 모델의 차이 | RT-DETRv2-R50이 **+6장, +{pct(recommendation['accuracy']) - pct(baseline['accuracy']):.2f}%p** |",
+        f"| 대상 누락률(FNR) | **{pct(baseline['fnr']):.2f}% → {pct(recommendation['fnr']):.2f}%**, 21장 → 15장 |",
+        f"| 비대상 오수락률(FPR) | 두 모델 모두 **{pct(recommendation['fpr']):.2f}%**, 각 1장 |",
+        "| 오류율 5% 목표 | 모든 모델이 FNR 기준 미달 |",
+        "| 상업 이용 조건 | RT-DETRv2-R50·RTMDet은 Apache-2.0 계열 |",
         "",
         "## RTMDet 크기별 결과",
         "",
@@ -222,14 +223,14 @@ def build_readme(rows: dict[str, dict[str, str]]) -> None:
         "",
         "## 최신 후보와 직접 비교",
         "",
-        "`최신 후보`는 이번에 추가 실행한 5개 모델입니다. RT-DETRv2-R50은 앞선 후보 평가의 클래스 매핑 오류를 보정한 결과이며, 전체 모델 중 성능이 가장 좋아 의사결정 표에 함께 넣었습니다.",
+        "`최신 후보`는 이번에 추가 실행한 5개 모델입니다. RT-DETRv2-R50은 앞선 후보 평가의 클래스 매핑 오류를 보정한 결과이며, 전체 결과 비교를 위해 함께 표시했습니다.",
         "",
         "| 순위 | 모델 | 구분 | 정답/372 | 정확도 | FPR | FNR | RTMDet-x 대비 | 상업 적용 검토 |",
         "|---:|---|---|---:|---:|---:|---:|---:|---|",
     ]
     for rank, model in enumerate(selected, 1):
         row = rows[model]
-        group = "추천" if model == "rtdetrv2-r50" else "RTMDet" if model in RTMDET_MODELS else "최신 후보"
+        group = "기존 후보" if model == "rtdetrv2-r50" else "RTMDet" if model in RTMDET_MODELS else "최신 후보"
         delta = int(row["correct"]) - int(baseline["correct"])
         commercial = {
             "permissive_with_notices": "가능성 높음",
@@ -242,21 +243,21 @@ def build_readme(rows: dict[str, dict[str, str]]) -> None:
 
     lines += [
         "",
-        "## PM 권고안",
+        "## 결과 해석",
         "",
-        "### 1. RT-DETRv2-R50으로 제한된 PoC 진행",
+        "### RT-DETRv2-R50",
         "",
         "- 현재 표본에서 정확도 1위이며 RTMDet-x와 같은 FPR에서 FNR을 2.21%p 낮췄습니다.",
         "- Apache-2.0 계열이라 폐쇄형 상업 서비스 검토가 상대적으로 단순합니다.",
         "- 파라미터는 43.0M으로 현재 프로젝트의 `RTMDet-l보다 작은 후보` 조건을 충족합니다.",
         "",
-        "### 2. RTMDet-x는 비교 기준으로 유지",
+        "### RTMDet-x와 최신 후보 5종",
         "",
         "- 최신 후보 5개 중 D-FINE-L만 RTMDet-x보다 2장 더 맞혔습니다.",
         "- RF-DETR Large와 YOLOv13-L은 동률, RF-DETR Medium과 LW-DETR Large는 더 낮았습니다.",
-        "- RTMDet-x는 라이선스가 명확하고 기존 구현이 있어 롤백 기준으로 적합합니다.",
+        "- RTMDet-x와 RT-DETRv2-R50은 모두 Apache-2.0 계열입니다.",
         "",
-        "### 3. 제품 전환 전에 세 가지 게이트 적용",
+        "### 추가 검증 항목",
         "",
         "1. **독립 검증:** 모델 선정에 사용하지 않은 신규 이미지로 재평가합니다.",
         "2. **운영 목표:** 검증 세트에서 FPR ≤ 5%, FNR ≤ 5%를 모두 통과해야 합니다. 현재 최선 FNR은 5.54%로 누락 2장을 더 줄여야 합니다.",
