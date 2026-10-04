@@ -13,7 +13,6 @@ from matplotlib.patches import Rectangle
 ROOT = Path(__file__).resolve().parents[1]
 COMBINED_CSV = ROOT / "docs/reports/coco-extended-detectors/comparison.csv"
 BY_SOURCE_CSV = ROOT / "docs/reports/coco-extended-detectors/by_source.csv"
-RTMDET_CSV = ROOT / "outputs/rtmdet/model-size-20260927/model-size-comparison/comparison.csv"
 OUTPUT = ROOT / "docs/reports/rtmdet-vs-latest"
 README_OUTPUT = ROOT / "README.md"
 
@@ -126,32 +125,54 @@ def save_overview(rows: dict[str, dict[str, str]]) -> None:
     plt.close(fig)
 
 
-def save_rtmdet_trend(rows: list[dict[str, str]]) -> None:
-    top1 = {row["model"]: row for row in rows if row["top_k"] == "1"}
-    x = np.arange(len(RTMDET_MODELS))
-    accuracy = [pct(top1[m]["candidate_hit_rate"]) for m in RTMDET_MODELS]
-    latency = [float(top1[m]["latency_mean_ms"]) for m in RTMDET_MODELS]
-
-    fig, ax_accuracy = plt.subplots(figsize=(13, 5.8), layout="constrained")
-    ax_latency = ax_accuracy.twinx()
-    ax_accuracy.plot(x, accuracy, color=BLUE, marker="o", linewidth=3, markersize=9, label="정확도")
-    ax_latency.plot(x, latency, color=AMBER, marker="o", linewidth=3, markersize=9, label="CPU 지연")
-    ax_accuracy.set_xticks(x, [DISPLAY[m] for m in RTMDET_MODELS])
-    ax_accuracy.set_ylim(85, 96)
-    ax_latency.set_ylim(0, 1500)
-    ax_accuracy.set_ylabel("정확도 (%)", color=BLUE, fontweight="bold")
-    ax_latency.set_ylabel("지연 (ms/image)", color=AMBER, fontweight="bold")
-    ax_accuracy.grid(axis="y", color=GRID, linewidth=0.8)
-    ax_accuracy.set_axisbelow(True)
-    ax_accuracy.set_title("RTMDet 크기 증가 효과: x가 가장 정확하지만 지연은 tiny의 7.7배", loc="left", fontsize=16, fontweight="bold")
-    for i, value in enumerate(accuracy):
-        ax_accuracy.annotate(f"{value:.2f}%", (i, value), xytext=(0, 18), textcoords="offset points", ha="center", color=BLUE, fontweight="bold")
-    for i, value in enumerate(latency):
-        ax_latency.annotate(f"{value:.0f}ms", (i, value), xytext=(0, -28), textcoords="offset points", ha="center", color="#B45309", fontweight="bold")
-    for axis in (ax_accuracy, ax_latency):
-        for spine in axis.spines.values():
-            spine.set_visible(False)
-    fig.savefig(OUTPUT / "rtmdet-size-trend.png", dpi=180, bbox_inches="tight")
+def save_accuracy_latency(rows: dict[str, dict[str, str]]) -> None:
+    fig, axis = plt.subplots(figsize=(13, 7.5), layout="constrained")
+    offsets = {
+        "rtdetrv2-r50": (10, 10),
+        "dfine-l-obj2coco": (-105, 12),
+        "rf-detr-large": (-115, -18),
+        "yolov13l": (10, 10),
+        "rtmdet-x": (-70, 12),
+        "rf-detr-medium": (10, 10),
+        "lw-detr-large": (-120, -18),
+        "rtmdet-m": (10, -18),
+        "rtmdet-l": (10, -18),
+        "rtmdet-s": (10, 10),
+        "rtmdet-tiny": (10, 10),
+    }
+    groups = [
+        ("기존 후보", ["rtdetrv2-r50"], BLUE),
+        ("최신 후보", LATEST_MODELS, AMBER),
+        ("RTMDet", RTMDET_MODELS, SLATE),
+    ]
+    for group_name, models, color in groups:
+        latencies = [float(rows[model]["latency_ms"]) for model in models]
+        accuracies = [pct(rows[model]["accuracy"]) for model in models]
+        axis.scatter(latencies, accuracies, s=125, color=color, edgecolor="white", linewidth=1.4, label=group_name, zorder=3)
+        for model, latency, accuracy in zip(models, latencies, accuracies):
+            offset_x, offset_y = offsets[model]
+            axis.annotate(
+                f"{DISPLAY[model]}\n{latency:.0f}ms · {accuracy:.2f}%",
+                (latency, accuracy),
+                xytext=(offset_x, offset_y),
+                textcoords="offset points",
+                fontsize=9,
+                fontweight="bold",
+                ha="left",
+                va="bottom" if offset_y >= 0 else "top",
+                arrowprops={"arrowstyle": "-", "color": "#64748B", "linewidth": 0.8},
+            )
+    axis.set_xlim(100, 1500)
+    axis.set_ylim(86.5, 96.5)
+    axis.set_xlabel("CPU 레이턴시 (ms/image) — 낮을수록 좋음", fontweight="bold")
+    axis.set_ylabel("정확도 (%) — 높을수록 좋음", fontweight="bold")
+    axis.set_title("전체 모델 정확도와 CPU 레이턴시", loc="left", fontsize=18, fontweight="bold")
+    axis.grid(color=GRID, linewidth=0.8)
+    axis.set_axisbelow(True)
+    axis.legend(frameon=False, loc="lower right")
+    for spine in axis.spines.values():
+        spine.set_visible(False)
+    fig.savefig(OUTPUT / "accuracy-latency.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -318,22 +339,11 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
         "",
         "¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. RTMDet과 신규 후보는 실행 프레임워크와 반복 횟수가 달라 모델군 사이의 속도 배수로 해석하지 않습니다.",
         "",
-        "## RTMDet 크기별 결과",
+        "## 정확도와 CPU 레이턴시",
         "",
-        "RTMDet은 전반적으로 모델이 커질수록 정확도가 높아졌지만, `m → l`에서는 0.54%p 낮아졌습니다. `x`의 CPU 지연은 `tiny`의 약 7.7배였습니다.",
+        "왼쪽 위에 가까울수록 동일한 이미지 평가에서 정확도가 높고 CPU 레이턴시가 낮습니다. 모델군 사이의 런타임 차이가 있으므로 레이턴시는 참고값입니다.",
         "",
-        "![RTMDet 모델 크기별 정확도와 지연](docs/reports/rtmdet-vs-latest/rtmdet-size-trend.png)",
-        "",
-        "| 모델 | 정답/372 | 정확도 | FPR | FNR | CPU 지연¹ |",
-        "|---|---:|---:|---:|---:|---:|",
-    ]
-    for model in RTMDET_MODELS:
-        row = rows[model]
-        lines.append(
-            f"| {DISPLAY[model]} | {row['correct']} | {pct(row['accuracy']):.2f}% | {pct(row['fpr']):.2f}% | {pct(row['fnr']):.2f}% | {float(row['latency_ms']):.0f} ms |"
-        )
-
-    lines += [
+        "![전체 모델 정확도와 CPU 레이턴시](docs/reports/rtmdet-vs-latest/accuracy-latency.png)",
         "",
         "## 클래스별 결과",
         "",
@@ -401,12 +411,11 @@ def main() -> None:
     missing = set(DECISION_MODELS) - set(combined)
     if missing:
         raise RuntimeError(f"Missing models in {COMBINED_CSV}: {sorted(missing)}")
-    rtmdet = read_rows(RTMDET_CSV)
     by_source = read_rows(BY_SOURCE_CSV)
     matrices = build_confusion_matrices(by_source)
     setup_plotting()
     save_overview(combined)
-    save_rtmdet_trend(rtmdet)
+    save_accuracy_latency(combined)
     save_confusion_matrices(matrices, combined)
     class_rows = save_class_metrics(matrices, combined)
     build_readme(combined, class_rows)
