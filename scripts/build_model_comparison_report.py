@@ -232,12 +232,14 @@ def save_class_metrics(matrices: dict[str, np.ndarray], rows: dict[str, dict[str
     ordered = sorted(DECISION_MODELS, key=lambda model: float(rows[model]["accuracy"]), reverse=True)
     metrics_by_model = {model: class_metrics(matrices[model]) for model in ordered}
     recalls = np.array([[float(item["recall"]) * 100 for item in metrics_by_model[model]] for model in ordered])
+    fnrs = np.array([[float(item["fnr"]) * 100 for item in metrics_by_model[model]] for model in ordered])
     fprs = np.array([[float(item["fpr"]) * 100 for item in metrics_by_model[model]] for model in ordered])
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 9), layout="constrained")
+    fig, axes = plt.subplots(1, 3, figsize=(20, 9), layout="constrained")
     panels = [
         (axes[0], recalls, "클래스별 Recall", "높을수록 좋음", "YlGnBu", 65, 100),
-        (axes[1], fprs, "클래스별 FPR", "낮을수록 좋음", "YlOrRd", 0, max(16, float(fprs.max()))),
+        (axes[1], fnrs, "클래스별 FNR", "낮을수록 좋음", "YlOrRd", 0, max(35, float(fnrs.max()))),
+        (axes[2], fprs, "클래스별 FPR", "낮을수록 좋음", "YlOrRd", 0, max(16, float(fprs.max()))),
     ]
     for axis, values, title, subtitle, cmap, vmin, vmax in panels:
         image = axis.imshow(values, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax)
@@ -316,36 +318,36 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
         "",
         "## 클래스별 결과",
         "",
-        "아래 FPR은 각 클래스를 one-vs-rest로 계산했습니다. 예를 들어 `book FPR`은 실제 `computer` 또는 `other` 이미지를 `book`으로 예측한 비율입니다. `other FPR`은 대상 이미지를 `other`로 예측한 비율이므로 위 전체 FNR과 같습니다.",
+        "클래스별 FNR은 해당 클래스를 다른 클래스로 놓친 비율(`1 - Recall`)입니다. FPR은 각 클래스를 one-vs-rest로 계산했습니다. 예를 들어 `book FPR`은 실제 `computer` 또는 `other` 이미지를 `book`으로 예측한 비율입니다. `other FPR`은 대상 이미지를 `other`로 예측한 비율이므로 위 전체 FNR과 같습니다.",
         "",
-        "![클래스별 Recall과 FPR](docs/reports/rtmdet-vs-latest/class-metrics.png)",
+        "![클래스별 Recall, FNR, FPR](docs/reports/rtmdet-vs-latest/class-metrics.png)",
         "",
         "### Book 상세",
         "",
         "`book`은 71장입니다. 최고 recall은 LW-DETR Large의 90.14%(64/71)였으며, 전체 정확도 1위 RT-DETRv2-R50은 85.92%(61/71)였습니다.",
         "",
-        "| 모델 | 정답/71 | 누락 | Recall | Precision | FPR |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| 모델 | 정답/71 | 누락 | Recall | FNR | Precision | FPR |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for model in book_order:
         item = class_lookup[model, "book"]
         lines.append(
-            f"| {DISPLAY[model]} | {item['tp']} | {item['misses']} | {float(item['recall']):.2%} | {float(item['precision']):.2%} | {float(item['fpr']):.2%} |"
+            f"| {DISPLAY[model]} | {item['tp']} | {item['misses']} | {float(item['recall']):.2%} | {float(item['fnr']):.2%} | {float(item['precision']):.2%} | {float(item['fpr']):.2%} |"
         )
 
     lines += [
         "",
-        "### 전체 클래스 Recall·FPR",
+        "### 전체 클래스 Recall·FNR·FPR",
         "",
-        "| 모델 | Computer Recall | Computer FPR | Book Recall | Book FPR | Other Recall | Other FPR |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| 모델 | Computer Recall | Computer FNR | Computer FPR | Book Recall | Book FNR | Book FPR | Other Recall | Other FNR | Other FPR |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for model in selected:
         computer = class_lookup[model, "computer"]
         book = class_lookup[model, "book"]
         other = class_lookup[model, "other"]
         lines.append(
-            f"| {DISPLAY[model]} | {float(computer['recall']):.2%} | {float(computer['fpr']):.2%} | {float(book['recall']):.2%} | {float(book['fpr']):.2%} | {float(other['recall']):.2%} | {float(other['fpr']):.2%} |"
+            f"| {DISPLAY[model]} | {float(computer['recall']):.2%} | {float(computer['fnr']):.2%} | {float(computer['fpr']):.2%} | {float(book['recall']):.2%} | {float(book['fnr']):.2%} | {float(book['fpr']):.2%} | {float(other['recall']):.2%} | {float(other['fnr']):.2%} | {float(other['fpr']):.2%} |"
         )
 
     lines += [
