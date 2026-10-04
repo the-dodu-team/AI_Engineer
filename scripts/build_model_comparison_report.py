@@ -303,18 +303,20 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
         "",
         "전체 FNR은 `computer`·`book`을 `other`로 거절한 비율(분모 271), 전체 FPR은 `other`를 대상 클래스로 수락한 비율(분모 101)입니다.",
         "",
-        "| 순위 | 모델 | 구분 | 정답/372 | 정확도 | FNR | FPR | 상업 이용 조건 |",
-        "|---:|---|---|---:|---:|---:|---:|---|",
+        "| 순위 | 모델 | 구분 | 정답/372 | 정확도 | FNR | FPR | CPU 레이턴시¹ | 상업 이용 조건 |",
+        "|---:|---|---|---:|---:|---:|---:|---:|---|",
     ]
     for rank, model in enumerate(selected, 1):
         row = rows[model]
         group = "기존 후보" if model == "rtdetrv2-r50" else "RTMDet" if model in RTMDET_MODELS else "최신 후보"
         commercial = license_labels.get(row["commercial_status"], "확인 필요")
         lines.append(
-            f"| {rank} | **{DISPLAY[model]}** | {group} | {row['correct']} | {pct(row['accuracy']):.2f}% | {pct(row['fnr']):.2f}% | {pct(row['fpr']):.2f}% | {commercial} |"
+            f"| {rank} | **{DISPLAY[model]}** | {group} | {row['correct']} | {pct(row['accuracy']):.2f}% | {pct(row['fnr']):.2f}% | {pct(row['fpr']):.2f}% | {float(row['latency_ms']):.1f} ms | {commercial} |"
         )
 
     lines += [
+        "",
+        "¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. RTMDet과 신규 후보는 실행 프레임워크와 반복 횟수가 달라 모델군 사이의 속도 배수로 해석하지 않습니다.",
         "",
         "## RTMDet 크기별 결과",
         "",
