@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMBINED_CSV = ROOT / "docs/reports/coco-extended-detectors/comparison.csv"
 RTMDET_CSV = ROOT / "outputs/rtmdet/model-size-20260927/model-size-comparison/comparison.csv"
 OUTPUT = ROOT / "docs/reports/pm-rtmdet-vs-latest"
+README_OUTPUT = ROOT / "README.md"
 
 RTMDET_MODELS = ["rtmdet-tiny", "rtmdet-s", "rtmdet-m", "rtmdet-l", "rtmdet-x"]
 LATEST_MODELS = [
@@ -189,7 +190,7 @@ def build_readme(rows: dict[str, dict[str, str]]) -> None:
         "> **제안: RT-DETRv2-R50을 다음 PoC 모델로 채택하고, RTMDet-x는 기준 모델로 유지합니다.**",
         "> 정확도는 95.70%로 RTMDet-x보다 6장을 더 맞혔지만, FNR 5% 목표와 독립 검증은 아직 통과하지 못했습니다.",
         "",
-        "![RTMDet와 최신 모델 비교 대시보드](pm-overview.png)",
+        "![RTMDet와 최신 모델 비교 대시보드](docs/reports/pm-rtmdet-vs-latest/pm-overview.png)",
         "",
         "## 한눈에 보는 의사결정",
         "",
@@ -206,7 +207,7 @@ def build_readme(rows: dict[str, dict[str, str]]) -> None:
         "",
         "RTMDet은 전반적으로 모델이 커질수록 정확도가 좋아졌지만, `m → l`에서는 정확도가 오히려 0.54%p 낮아졌습니다. 가장 정확한 `x`는 `tiny`보다 정답이 24장 많고 CPU 지연은 약 7.7배입니다.",
         "",
-        "![RTMDet 모델 크기별 정확도와 지연](rtmdet-size-trend.png)",
+        "![RTMDet 모델 크기별 정확도와 지연](docs/reports/pm-rtmdet-vs-latest/rtmdet-size-trend.png)",
         "",
         "| 모델 | 정답/372 | 정확도 | FPR | FNR | CPU 지연¹ |",
         "|---|---:|---:|---:|---:|---:|",
@@ -270,13 +271,12 @@ def build_readme(rows: dict[str, dict[str, str]]) -> None:
         "",
         "## 근거 자료",
         "",
-        "- [20개 모델 전체 집계](../coco-extended-detectors/README.md)",
-        "- [통합 수치 CSV](../coco-extended-detectors/comparison.csv)",
-        "- [기존 RTMDet 크기별 원본 결과](../../../outputs/rtmdet/model-size-20260927/model-size-comparison/README.md)",
-        "- [평가 및 재현 방법](../../coco-extended-detectors.md)",
+        "- [20개 모델 전체 집계](docs/reports/coco-extended-detectors/README.md)",
+        "- [통합 수치 CSV](docs/reports/coco-extended-detectors/comparison.csv)",
+        "- [평가 및 재현 방법](docs/coco-extended-detectors.md)",
         "",
     ]
-    (OUTPUT / "README.md").write_text("\n".join(lines), encoding="utf-8")
+    README_OUTPUT.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> None:
@@ -290,7 +290,7 @@ def main() -> None:
     save_overview(combined)
     save_rtmdet_trend(rtmdet)
     build_readme(combined)
-    print(OUTPUT / "README.md")
+    print(README_OUTPUT)
 
 
 if __name__ == "__main__":
