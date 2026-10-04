@@ -125,54 +125,25 @@ def save_overview(rows: dict[str, dict[str, str]]) -> None:
     plt.close(fig)
 
 
-def save_accuracy_latency(rows: dict[str, dict[str, str]]) -> None:
-    fig, axis = plt.subplots(figsize=(13, 7.5), layout="constrained")
-    offsets = {
-        "rtdetrv2-r50": (10, 10),
-        "dfine-l-obj2coco": (-105, 12),
-        "rf-detr-large": (-115, -18),
-        "yolov13l": (10, 10),
-        "rtmdet-x": (-70, 12),
-        "rf-detr-medium": (10, 10),
-        "lw-detr-large": (-120, -18),
-        "rtmdet-m": (10, -18),
-        "rtmdet-l": (10, -18),
-        "rtmdet-s": (10, 10),
-        "rtmdet-tiny": (10, 10),
-    }
-    groups = [
-        ("기존 후보", ["rtdetrv2-r50"], BLUE),
-        ("최신 후보", LATEST_MODELS, AMBER),
-        ("RTMDet", RTMDET_MODELS, SLATE),
-    ]
-    for group_name, models, color in groups:
-        latencies = [float(rows[model]["latency_ms"]) for model in models]
-        accuracies = [pct(rows[model]["accuracy"]) for model in models]
-        axis.scatter(latencies, accuracies, s=125, color=color, edgecolor="white", linewidth=1.4, label=group_name, zorder=3)
-        for model, latency, accuracy in zip(models, latencies, accuracies):
-            offset_x, offset_y = offsets[model]
-            axis.annotate(
-                f"{DISPLAY[model]}\n{latency:.0f}ms · {accuracy:.2f}%",
-                (latency, accuracy),
-                xytext=(offset_x, offset_y),
-                textcoords="offset points",
-                fontsize=9,
-                fontweight="bold",
-                ha="left",
-                va="bottom" if offset_y >= 0 else "top",
-                arrowprops={"arrowstyle": "-", "color": "#64748B", "linewidth": 0.8},
-            )
-    axis.set_xlim(100, 1500)
-    axis.set_ylim(86.5, 96.5)
+def save_latency(rows: dict[str, dict[str, str]]) -> None:
+    ordered = sorted(DECISION_MODELS, key=lambda model: float(rows[model]["latency_ms"]))
+    names = [DISPLAY[model] for model in ordered]
+    latencies = [float(rows[model]["latency_ms"]) for model in ordered]
+    colors = [BLUE for _ in ordered]
+
+    fig, axis = plt.subplots(figsize=(12, 7.5), layout="constrained")
+    bars = axis.barh(names, latencies, color=colors, height=0.68)
+    axis.invert_yaxis()
+    axis.set_xlim(0, 1500)
     axis.set_xlabel("CPU 레이턴시 (ms/image) — 낮을수록 좋음", fontweight="bold")
-    axis.set_ylabel("정확도 (%) — 높을수록 좋음", fontweight="bold")
-    axis.set_title("전체 모델 정확도와 CPU 레이턴시", loc="left", fontsize=18, fontweight="bold")
-    axis.grid(color=GRID, linewidth=0.8)
+    axis.set_title("전체 모델 CPU 레이턴시", loc="left", fontsize=18, fontweight="bold")
+    axis.grid(axis="x", color=GRID, linewidth=0.8)
     axis.set_axisbelow(True)
-    axis.legend(frameon=False, loc="lower right")
+    for bar, latency in zip(bars, latencies):
+        axis.text(latency + 15, bar.get_y() + bar.get_height() / 2, f"{latency:.1f} ms", va="center", fontweight="bold")
     for spine in axis.spines.values():
         spine.set_visible(False)
-    fig.savefig(OUTPUT / "accuracy-latency.png", dpi=180, bbox_inches="tight")
+    fig.savefig(OUTPUT / "latency.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -339,11 +310,11 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
         "",
         "¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. RTMDet과 신규 후보는 실행 프레임워크와 반복 횟수가 달라 모델군 사이의 속도 배수로 해석하지 않습니다.",
         "",
-        "## 정확도와 CPU 레이턴시",
+        "## CPU 레이턴시",
         "",
-        "왼쪽 위에 가까울수록 동일한 이미지 평가에서 정확도가 높고 CPU 레이턴시가 낮습니다. 모델군 사이의 런타임 차이가 있으므로 레이턴시는 참고값입니다.",
+        "전체 11개 모델을 CPU 이미지당 평균 레이턴시가 낮은 순서로 정렬했습니다. 모델군 사이의 런타임 차이가 있으므로 참고값으로 봐야 합니다.",
         "",
-        "![전체 모델 정확도와 CPU 레이턴시](docs/reports/rtmdet-vs-latest/accuracy-latency.png)",
+        "![전체 모델 CPU 레이턴시](docs/reports/rtmdet-vs-latest/latency.png)",
         "",
         "## 클래스별 결과",
         "",
@@ -415,7 +386,7 @@ def main() -> None:
     matrices = build_confusion_matrices(by_source)
     setup_plotting()
     save_overview(combined)
-    save_accuracy_latency(combined)
+    save_latency(combined)
     save_confusion_matrices(matrices, combined)
     class_rows = save_class_metrics(matrices, combined)
     build_readme(combined, class_rows)
