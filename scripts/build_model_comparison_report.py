@@ -17,14 +17,15 @@ OUTPUT = ROOT / "docs/reports/rtmdet-vs-latest"
 README_OUTPUT = ROOT / "README.md"
 
 RTMDET_MODELS = ["rtmdet-tiny", "rtmdet-s", "rtmdet-m", "rtmdet-l", "rtmdet-x"]
-LATEST_MODELS = [
+CANDIDATE_MODELS = [
+    "rtdetrv2-r50",
     "rf-detr-large",
     "dfine-l-obj2coco",
     "lw-detr-large",
     "rf-detr-medium",
     "yolov13l",
 ]
-DECISION_MODELS = ["rtdetrv2-r50", *LATEST_MODELS, *RTMDET_MODELS]
+DECISION_MODELS = [*CANDIDATE_MODELS, *RTMDET_MODELS]
 
 DISPLAY = {
     "rtdetrv2-r50": "RT-DETRv2-R50",
@@ -42,7 +43,6 @@ DISPLAY = {
 
 BLUE = "#2563EB"
 NAVY = "#0F172A"
-AMBER = "#F59E0B"
 SLATE = "#94A3B8"
 RED = "#DC2626"
 GREEN = "#059669"
@@ -75,11 +75,9 @@ def setup_plotting() -> None:
 
 
 def color_for(model: str) -> str:
-    if model == "rtdetrv2-r50":
-        return BLUE
     if model in RTMDET_MODELS:
         return SLATE
-    return AMBER
+    return BLUE
 
 
 def save_overview(rows: dict[str, dict[str, str]]) -> None:
@@ -90,7 +88,7 @@ def save_overview(rows: dict[str, dict[str, str]]) -> None:
     fprs = [pct(rows[m]["fpr"]) for m in ordered]
     fig, (ax_accuracy, ax_error) = plt.subplots(1, 2, figsize=(18, 8.5), layout="constrained")
 
-    fig.suptitle("RTMDet 모델 크기별 결과 vs 최신 사전학습 후보", fontsize=23, fontweight="bold")
+    fig.suptitle("RTMDet 모델 크기별 결과 vs 탐지 모델 후보", fontsize=23, fontweight="bold")
     bars = ax_accuracy.barh(names, accuracies, color=[color_for(m) for m in ordered], height=0.68)
     ax_accuracy.set_xlim(85, 97)
     ax_accuracy.set_xlabel("정확도 (%)")
@@ -280,12 +278,12 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
     }
 
     lines = [
-        "# RTMDet 모델 크기별 결과 vs 최신 탐지 모델",
+        "# RTMDet 모델 크기별 결과 vs 탐지 모델 후보",
         "",
-        "동일한 고유 이미지 372장에서 RTMDet 5종, 최신 후보 5종, RT-DETRv2-R50을 Top-1 기준으로 비교했습니다.",
+        "동일한 고유 이미지 372장에서 RTMDet 5종과 탐지 모델 후보 6종을 Top-1 기준으로 비교했습니다.",
         "",
-        "- 전체 정확도 최고값: **RT-DETRv2-R50 95.70%(356/372)**",
-        "- 최신 후보 5종 최고값: **D-FINE-L 94.62%(352/372)**",
+        "- 후보 6종 중 최고값: **RT-DETRv2-R50 95.70%(356/372)**",
+        "- RTMDet 5종 중 최고값: **RTMDet-x 94.09%(350/372)**",
         "- 모든 모델의 전체 FPR은 2% 이하였지만, 전체 FNR은 5% 목표를 충족하지 못했습니다.",
         "- 11개 모델 모두 `book` recall이 `computer` recall보다 낮았습니다.",
         "",
@@ -300,7 +298,7 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
     ]
     for rank, model in enumerate(selected, 1):
         row = rows[model]
-        group = "기존 후보" if model == "rtdetrv2-r50" else "RTMDet" if model in RTMDET_MODELS else "최신 후보"
+        group = "RTMDet" if model in RTMDET_MODELS else "후보"
         commercial = license_labels.get(row["commercial_status"], "확인 필요")
         lines.append(
             f"| {rank} | **{DISPLAY[model]}** | {group} | {row['correct']} | {pct(row['accuracy']):.2f}% | {pct(row['fnr']):.2f}% | {pct(row['fpr']):.2f}% | {float(row['latency_ms']):.1f} ms | {commercial} |"
@@ -308,7 +306,7 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
 
     lines += [
         "",
-        "¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. RTMDet과 신규 후보는 실행 프레임워크와 반복 횟수가 달라 모델군 사이의 속도 배수로 해석하지 않습니다.",
+        "¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. RTMDet과 후보 모델은 실행 프레임워크와 반복 횟수가 달라 모델군 사이의 속도 배수로 해석하지 않습니다.",
         "",
         "## CPU 레이턴시",
         "",
@@ -362,7 +360,7 @@ def build_readme(rows: dict[str, dict[str, str]], class_rows: list[dict[str, obj
         "",
         "- 결과는 고유 이미지 372장(`computer` 200, `book` 71, `other` 101)의 이미지 단위 Top-1 평가입니다.",
         "- 모델 선정에 사용한 데이터와 같은 평가 세트이므로 새로운 이미지에 대한 일반화 성능은 별도 검증이 필요합니다.",
-        "- ¹ RTMDet 5종의 지연은 같은 기존 실행 안에서 비교할 수 있습니다. 최신 후보는 프레임워크와 반복 횟수가 달라 RTMDet과의 속도 배수를 계산하지 않았습니다.",
+        "- ¹ RTMDet 5종의 지연은 같은 기존 실행 안에서 비교할 수 있습니다. 후보 모델은 프레임워크와 반복 횟수가 달라 RTMDet과의 속도 배수를 계산하지 않았습니다.",
         "- D-FINE-L과 LW-DETR은 Objects365 관련 가중치 권리를 확인해야 합니다. YOLOv13-L은 AGPL-3.0 준수 또는 별도 허가가 필요합니다.",
         "",
         "## 근거 자료",
