@@ -2,6 +2,38 @@
 
 동일한 고유 이미지 372장에서 RTMDet 5종과 탐지 모델 후보 6종을 Top-1 기준으로 비교했습니다.
 
+## 선택 모델 Top-2 실험 결과
+
+Top-1 성능이 우수했던 RT-DETRv2-R50, RT-DETRv2-R34, LW-DETR Large를 동일한 372장에서 다시 실행하고, 같은 추론 점수로 Top-1과 Top-2를 비교했습니다. 이 실험은 추가 학습이나 fine-tuning이 아니라 사전학습 가중치의 추론 후처리 비교입니다.
+
+| 모델 | k | 정답 포함률 | 전체 FNR | 전체 FPR | 복수 후보율 |
+|---|---:|---:|---:|---:|---:|
+| **RT-DETRv2-R50** | 1 | **95.70%** | **5.54%** | 0.99% | 0.00% |
+| RT-DETRv2-R50 | 2 | **99.73%** | **0.00%** | 53.47% | 87.37% |
+| **RT-DETRv2-R34** | 1 | 94.09% | 7.75% | **0.00%** | 0.00% |
+| RT-DETRv2-R34 | 2 | 99.46% | 0.00% | 65.35% | 90.59% |
+| **LW-DETR Large** | 1 | 93.55% | 8.12% | 0.99% | 0.00% |
+| LW-DETR Large | 2 | 98.92% | 0.00% | **33.66%** | 81.45% |
+
+![선택 모델 Top-1과 Top-2 비교](docs/reports/selected-topk2/topk-overview.png)
+
+Top-2는 세 모델 모두 전체 FNR을 0%로 낮췄지만, 비대상 이미지에 대상 후보를 포함하는 FPR이 33.66~65.35%로 증가했습니다. 복수 후보율도 81.45~90.59%이므로 자동 단일 판정으로 사용하기에는 비용이 큽니다.
+
+- 자동 단일 판정 기본안: **RT-DETRv2-R50 Top-1** — 정확도 95.70%, FNR 5.54%, FPR 0.99%
+- FPR 최소화 대안: **RT-DETRv2-R34 Top-1** — FPR 0.00%, FNR 7.75%, CPU 534.4 ms/image
+- Recall 우선 shortlist: **LW-DETR Large Top-2** — 세 Top-2 중 FPR이 가장 낮지만 33.66%이므로 후속 분류기 또는 사용자 확인 필요
+- 현재 평가에서 FNR과 FPR을 모두 5% 이하로 만족한 구성은 없습니다.
+
+![Top-2 복구량과 오수락 비용](docs/reports/selected-topk2/recovery-vs-cost.png)
+
+![FNR과 FPR 트레이드오프](docs/reports/selected-topk2/fnr-fpr-tradeoff.png)
+
+클래스별 precision·recall·FNR·FPR, 기존 RTMDet 5종과의 비교, 이미지별 후보는 [Top-2 상세 보고서](docs/reports/selected-topk2/README.md)에서 확인할 수 있습니다.
+
+---
+
+## 기존 Top-1 모델 비교
+
 - 후보 6종 중 최고값: **RT-DETRv2-R50 95.70%(356/372)**
 - RTMDet 5종 중 최고값: **RTMDet-x 94.09%(350/372)**
 - 모든 모델의 전체 FPR은 2% 이하였지만, 전체 FNR은 5% 목표를 충족하지 못했습니다.

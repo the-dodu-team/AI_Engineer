@@ -1,0 +1,78 @@
+{
+  "model": "rtdetrv2-r50",
+  "threshold": 0.05,
+  "top1": {
+    "top_k": 1,
+    "images": 372,
+    "truth_inclusion_rate": 0.956989247311828,
+    "truth_included": 356,
+    "multiple_candidate_rate": 0.0,
+    "false_accepts": 1,
+    "negatives": 101,
+    "fpr": 0.009900990099009901,
+    "false_rejects": 15,
+    "positives": 271,
+    "fnr": 0.055350553505535055,
+    "expected_label_misses": 15,
+    "expected_label_fnr": 0.055350553505535055,
+    "class_metrics": {
+      "computer": {
+        "support": 200,
+        "tp": 195,
+        "fn": 5,
+        "fp": 0,
+        "recall": 0.975,
+        "fnr": 0.025000000000000022,
+        "precision": 1.0,
+        "fpr": 0.0
+      },
+      "book": {
+        "support": 71,
+        "tp": 61,
+        "fn": 10,
+        "fp": 1,
+        "recall": 0.8591549295774648,
+        "fnr": 0.14084507042253525,
+        "precision": 0.9838709677419355,
+        "fpr": 0.0033222591362126247
+      }
+    }
+  },
+  "top2": {
+    "top_k": 2,
+    "images": 372,
+    "truth_inclusion_rate": 0.9973118279569892,
+    "truth_included": 371,
+    "multiple_candidate_rate": 0.8736559139784946,
+    "false_accepts": 54,
+    "negatives": 101,
+    "fpr": 0.5346534653465347,
+    "false_rejects": 0,
+    "positives": 271,
+    "fnr": 0.0,
+    "expected_label_misses": 0,
+    "expected_label_fnr": 0.0,
+    "class_metrics": {
+      "computer": {
+        "support": 200,
+        "tp": 200,
+        "fn": 0,
+        "fp": 22,
+        "recall": 1.0,
+        "fnr": 0.0,
+        "precision": 0.9009009009009009,
+        "fpr": 0.12790697674418605
+      },
+      "book": {
+        "support": 71,
+        "tp": 71,
+        "fn": 0,
+        "fp": 46,
+        "recall": 1.0,
+        "fnr": 0.0,
+        "precision": 0.6068376068376068,
+        "fpr": 0.15282392026578073
+      }
+    }
+  }
+}
