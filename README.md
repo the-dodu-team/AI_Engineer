@@ -1,128 +1,92 @@
-# RTMDet 모델 크기별 결과 vs 탐지 모델 후보
+# RTMDet-x vs 선택 탐지 모델 Top-k 비교
 
-동일한 고유 이미지 372장에서 RTMDet 5종과 탐지 모델 후보 6종을 Top-1 기준으로 비교했습니다.
+동일한 고유 이미지 372장에서 RTMDet-x와 선택한 탐지 모델 3종을 비교했습니다.
 
-## 선택 모델 Top-2 실험 결과
+- RTMDet-x
+- RT-DETRv2-R50
+- RT-DETRv2-R34
+- LW-DETR Large
 
-Top-1 성능이 우수했던 RT-DETRv2-R50, RT-DETRv2-R34, LW-DETR Large를 동일한 372장에서 다시 실행하고, 같은 추론 점수로 Top-1과 Top-2를 비교했습니다. 이 실험은 추가 학습이나 fine-tuning이 아니라 사전학습 가중치의 추론 후처리 비교입니다.
+선택 모델 3종은 같은 추론 점수에서 Top-1과 Top-2를 함께 계산했습니다. RTMDet-x는 기존 Top-1 결과를 비교 기준으로 사용했습니다. 이 실험은 추가 학습이나 fine-tuning이 아니라 COCO 사전학습 가중치의 추론 후처리 비교입니다.
 
-| 모델 | k | 정답 포함률 | 전체 FNR | 전체 FPR | 복수 후보율 |
-|---|---:|---:|---:|---:|---:|
-| **RT-DETRv2-R50** | 1 | **95.70%** | **5.54%** | 0.99% | 0.00% |
-| RT-DETRv2-R50 | 2 | **99.73%** | **0.00%** | 53.47% | 87.37% |
-| **RT-DETRv2-R34** | 1 | 94.09% | 7.75% | **0.00%** | 0.00% |
-| RT-DETRv2-R34 | 2 | 99.46% | 0.00% | 65.35% | 90.59% |
-| **LW-DETR Large** | 1 | 93.55% | 8.12% | 0.99% | 0.00% |
-| LW-DETR Large | 2 | 98.92% | 0.00% | **33.66%** | 81.45% |
+## 결론
 
-![선택 모델 Top-1과 Top-2 비교](docs/reports/selected-topk2/topk-overview.png)
-
-Top-2는 세 모델 모두 전체 FNR을 0%로 낮췄지만, 비대상 이미지에 대상 후보를 포함하는 FPR이 33.66~65.35%로 증가했습니다. 복수 후보율도 81.45~90.59%이므로 자동 단일 판정으로 사용하기에는 비용이 큽니다.
-
-- 자동 단일 판정 기본안: **RT-DETRv2-R50 Top-1** — 정확도 95.70%, FNR 5.54%, FPR 0.99%
-- FPR 최소화 대안: **RT-DETRv2-R34 Top-1** — FPR 0.00%, FNR 7.75%, CPU 534.4 ms/image
-- Recall 우선 shortlist: **LW-DETR Large Top-2** — 세 Top-2 중 FPR이 가장 낮지만 33.66%이므로 후속 분류기 또는 사용자 확인 필요
+- **자동 단일 판정 1순위는 RT-DETRv2-R50 Top-1**입니다. 정확도 95.70%, FNR 5.54%, FPR 0.99%로 RTMDet-x보다 정확도와 FNR이 좋았습니다.
+- **FPR 최소화 모델은 RT-DETRv2-R34 Top-1**입니다. FPR 0.00%, 정확도 94.09%로 RTMDet-x와 정확도가 같고 CPU 지연은 더 짧았습니다.
+- Top-2는 선택 모델 3종의 전체 FNR을 모두 0%로 낮췄지만 FPR이 33.66~65.35%로 크게 증가했습니다.
+- 따라서 Top-2는 자동 승인보다 후속 분류기 또는 사용자 확인에 전달하는 recall 우선 shortlist로 사용하는 편이 적절합니다.
 - 현재 평가에서 FNR과 FPR을 모두 5% 이하로 만족한 구성은 없습니다.
+
+![Top-1과 Top-2 핵심 지표](docs/reports/selected-topk2/topk-overview.png)
+
+## Top-1 결과
+
+전체 FNR은 `computer`·`book` 이미지를 `other`로 거절한 비율이고, 전체 FPR은 `other` 이미지에 대상 클래스를 수락한 비율입니다.
+
+| 모델 | 정답/372 | 정확도 | FNR | FPR | CPU 지연¹ |
+|---|---:|---:|---:|---:|---:|
+| **RT-DETRv2-R50** | **356** | **95.70%** | **5.54%** | 0.99% | 853.1 ms |
+| **RT-DETRv2-R34** | 350 | 94.09% | 7.75% | **0.00%** | **534.4 ms** |
+| **RTMDet-x** | 350 | 94.09% | 7.75% | 0.99% | 1,346.7 ms |
+| **LW-DETR Large** | 348 | 93.55% | 8.12% | 0.99% | 818.3 ms |
+
+¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. 프레임워크와 반복 횟수 차이가 있으므로 지연 시간은 참고값입니다.
+
+![선택 모델 Top-1과 RTMDet-x 비교](docs/reports/selected-topk2/top1-vs-rtmdet.png)
+
+## Top-1 vs Top-2
+
+정답 포함률은 폴더 정답이 반환 후보 안에 존재하는 비율입니다. Top-2의 정답 포함률은 단일 분류 정확도가 아닙니다.
+
+| 모델 | k | 정답 포함 | 정답 포함률 | 전체 FNR | 전체 FPR | 복수 후보율 |
+|---|---:|---:|---:|---:|---:|---:|
+| RT-DETRv2-R50 | 1 | 356/372 | 95.70% | 5.54% | 0.99% | 0.00% |
+| RT-DETRv2-R50 | 2 | **371/372** | **99.73%** | **0.00%** | 53.47% | 87.37% |
+| RT-DETRv2-R34 | 1 | 350/372 | 94.09% | 7.75% | 0.00% | 0.00% |
+| RT-DETRv2-R34 | 2 | **370/372** | **99.46%** | **0.00%** | 65.35% | 90.59% |
+| LW-DETR Large | 1 | 348/372 | 93.55% | 8.12% | 0.99% | 0.00% |
+| LW-DETR Large | 2 | **368/372** | **98.92%** | **0.00%** | **33.66%** | 81.45% |
+
+Top-2로 복구한 정답보다 새로 증가한 오수락이 더 많았습니다.
+
+| 모델 | 추가 정답 포함 | 추가 오수락 |
+|---|---:|---:|
+| RT-DETRv2-R50 | +15 | +53 |
+| RT-DETRv2-R34 | +20 | +66 |
+| LW-DETR Large | +20 | +33 |
 
 ![Top-2 복구량과 오수락 비용](docs/reports/selected-topk2/recovery-vs-cost.png)
 
 ![FNR과 FPR 트레이드오프](docs/reports/selected-topk2/fnr-fpr-tradeoff.png)
 
-클래스별 precision·recall·FNR·FPR, 기존 RTMDet 5종과의 비교, 이미지별 후보는 [Top-2 상세 보고서](docs/reports/selected-topk2/README.md)에서 확인할 수 있습니다.
-
----
-
-## 기존 Top-1 모델 비교
-
-- 후보 6종 중 최고값: **RT-DETRv2-R50 95.70%(356/372)**
-- RTMDet 5종 중 최고값: **RTMDet-x 94.09%(350/372)**
-- 모든 모델의 전체 FPR은 2% 이하였지만, 전체 FNR은 5% 목표를 충족하지 못했습니다.
-- 11개 모델 모두 `book` recall이 `computer` recall보다 낮았습니다.
-
-![전체 정확도와 FNR·FPR](docs/reports/rtmdet-vs-latest/overview.png)
-
-## 전체 결과
-
-전체 FNR은 `computer`·`book`을 `other`로 거절한 비율(분모 271), 전체 FPR은 `other`를 대상 클래스로 수락한 비율(분모 101)입니다.
-
-| 순위 | 모델 | 구분 | 정답/372 | 정확도 | FNR | FPR | CPU 레이턴시¹ | 상업 이용 조건 |
-|---:|---|---|---:|---:|---:|---:|---:|---|
-| 1 | **RT-DETRv2-R50** | 후보 | 356 | 95.70% | 5.54% | 0.99% | 888.6 ms | Apache-2.0 계열 |
-| 2 | **D-FINE-L** | 후보 | 352 | 94.62% | 7.01% | 0.99% | 1226.7 ms | Objects365 권리 확인 필요 |
-| 3 | **RF-DETR Large** | 후보 | 350 | 94.09% | 7.75% | 0.99% | 1203.7 ms | Apache-2.0 계열 |
-| 4 | **YOLOv13-L** | 후보 | 350 | 94.09% | 7.38% | 0.99% | 668.1 ms | AGPL-3.0/별도 허가 |
-| 5 | **RTMDet-x** | RTMDet | 350 | 94.09% | 7.75% | 0.99% | 1346.7 ms | Apache-2.0 계열 |
-| 6 | **RF-DETR Medium** | 후보 | 349 | 93.82% | 8.12% | 0.99% | 435.7 ms | Apache-2.0 계열 |
-| 7 | **LW-DETR Large** | 후보 | 348 | 93.55% | 8.12% | 0.99% | 1331.8 ms | Objects365 권리 확인 필요 |
-| 8 | **RTMDet-m** | RTMDet | 346 | 93.01% | 9.59% | 0.00% | 481.1 ms | Apache-2.0 계열 |
-| 9 | **RTMDet-l** | RTMDet | 344 | 92.47% | 9.96% | 0.99% | 835.9 ms | Apache-2.0 계열 |
-| 10 | **RTMDet-s** | RTMDet | 337 | 90.59% | 12.18% | 1.98% | 251.7 ms | Apache-2.0 계열 |
-| 11 | **RTMDet-tiny** | RTMDet | 326 | 87.63% | 15.50% | 0.99% | 176.0 ms | Apache-2.0 계열 |
-
-¹ 이미지 디스크 읽기와 모델 로딩을 제외한 CPU 이미지당 평균입니다. RTMDet과 후보 모델은 실행 프레임워크와 반복 횟수가 달라 모델군 사이의 속도 배수로 해석하지 않습니다.
-
-## CPU 레이턴시
-
-전체 11개 모델을 CPU 이미지당 평균 레이턴시가 낮은 순서로 정렬했습니다. 모델군 사이의 런타임 차이가 있으므로 참고값으로 봐야 합니다.
-
-![전체 모델 CPU 레이턴시](docs/reports/rtmdet-vs-latest/latency.png)
-
 ## 클래스별 결과
 
-클래스별 FNR은 해당 클래스를 다른 클래스로 놓친 비율(`1 - Recall`)입니다. FPR은 각 클래스를 one-vs-rest로 계산했습니다. 예를 들어 `book FPR`은 실제 `computer` 또는 `other` 이미지를 `book`으로 예측한 비율입니다. `other FPR`은 대상 이미지를 `other`로 예측한 비율이므로 위 전체 FNR과 같습니다.
+Top-2에서 `computer`와 `book` recall은 크게 개선됐지만 precision과 FPR이 악화됐습니다. 특히 RT-DETRv2-R34 Top-2의 book precision은 51.82%, book FPR은 21.93%였습니다.
 
-![클래스별 Recall, FNR, FPR](docs/reports/rtmdet-vs-latest/class-metrics.png)
+![클래스별 Precision·Recall·FNR·FPR](docs/reports/selected-topk2/class-metrics.png)
 
-### Book 상세
+| 모델 | k | Computer Precision | Computer Recall | Book Precision | Book Recall |
+|---|---:|---:|---:|---:|---:|
+| RT-DETRv2-R50 | 1 | 100.00% | 97.50% | 98.39% | 85.92% |
+| RT-DETRv2-R50 | 2 | 90.09% | 100.00% | 60.68% | 100.00% |
+| RT-DETRv2-R34 | 1 | 100.00% | 95.50% | 98.31% | 81.69% |
+| RT-DETRv2-R34 | 2 | 90.41% | 99.00% | 51.82% | 100.00% |
+| LW-DETR Large | 1 | 100.00% | 92.00% | 96.97% | 90.14% |
+| LW-DETR Large | 2 | 94.71% | 98.50% | **63.39%** | 100.00% |
 
-`book`은 71장입니다. 최고 recall은 LW-DETR Large의 90.14%(64/71)였으며, 전체 정확도 1위 RT-DETRv2-R50은 85.92%(61/71)였습니다.
+## 평가 조건
 
-| 모델 | 정답/71 | 누락 | Recall | FNR | Precision | FPR |
-|---|---:|---:|---:|---:|---:|---:|
-| LW-DETR Large | 64 | 7 | 90.14% | 9.86% | 96.97% | 0.66% |
-| RT-DETRv2-R50 | 61 | 10 | 85.92% | 14.08% | 98.39% | 0.33% |
-| YOLOv13-L | 61 | 10 | 85.92% | 14.08% | 96.83% | 0.66% |
-| RTMDet-x | 61 | 10 | 85.92% | 14.08% | 98.39% | 0.33% |
-| RF-DETR Large | 59 | 12 | 83.10% | 16.90% | 98.33% | 0.33% |
-| D-FINE-L | 58 | 13 | 81.69% | 18.31% | 98.31% | 0.33% |
-| RF-DETR Medium | 57 | 14 | 80.28% | 19.72% | 98.28% | 0.33% |
-| RTMDet-m | 56 | 15 | 78.87% | 21.13% | 100.00% | 0.00% |
-| RTMDet-s | 55 | 16 | 77.46% | 22.54% | 100.00% | 0.00% |
-| RTMDet-l | 55 | 16 | 77.46% | 22.54% | 100.00% | 0.00% |
-| RTMDet-tiny | 48 | 23 | 67.61% | 32.39% | 97.96% | 0.33% |
+- 고유 이미지 372장: computer 200, book 71, other 101
+- 그룹 수락 임계값 0.05, 원시 탐지 하한 0.01
+- 입력 크기 640 또는 체크포인트 기본 전처리
+- CPU 10 threads, warm-up 5회, 이미지당 측정 1회
+- 선택 모델 데이터 manifest SHA-256을 RTMDet-x 평가 데이터와 대조
 
-### 전체 클래스 Recall·FNR·FPR
+모델 선정에 사용한 데이터와 같은 평가 세트이므로 최종 정책과 임계값은 별도 검증 데이터에서 확정해야 합니다. LW-DETR Large는 Objects365 사전학습 가중치의 상업 이용 조건도 별도로 확인해야 합니다.
 
-| 모델 | Computer Recall | Computer FNR | Computer FPR | Book Recall | Book FNR | Book FPR | Other Recall | Other FNR | Other FPR |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| RT-DETRv2-R50 | 97.50% | 2.50% | 0.00% | 85.92% | 14.08% | 0.33% | 99.01% | 0.99% | 5.54% |
-| D-FINE-L | 97.00% | 3.00% | 0.00% | 81.69% | 18.31% | 0.33% | 99.01% | 0.99% | 7.01% |
-| RF-DETR Large | 95.50% | 4.50% | 0.00% | 83.10% | 16.90% | 0.33% | 99.01% | 0.99% | 7.75% |
-| YOLOv13-L | 94.50% | 5.50% | 0.00% | 85.92% | 14.08% | 0.66% | 99.01% | 0.99% | 7.38% |
-| RTMDet-x | 94.50% | 5.50% | 0.00% | 85.92% | 14.08% | 0.33% | 99.01% | 0.99% | 7.75% |
-| RF-DETR Medium | 96.00% | 4.00% | 0.00% | 80.28% | 19.72% | 0.33% | 99.01% | 0.99% | 8.12% |
-| LW-DETR Large | 92.00% | 8.00% | 0.00% | 90.14% | 9.86% | 0.66% | 99.01% | 0.99% | 8.12% |
-| RTMDet-m | 94.50% | 5.50% | 0.00% | 78.87% | 21.13% | 0.00% | 100.00% | 0.00% | 9.59% |
-| RTMDet-l | 94.50% | 5.50% | 0.58% | 77.46% | 22.54% | 0.00% | 99.01% | 0.99% | 9.96% |
-| RTMDet-s | 91.50% | 8.50% | 1.16% | 77.46% | 22.54% | 0.00% | 98.02% | 1.98% | 12.18% |
-| RTMDet-tiny | 89.00% | 11.00% | 1.74% | 67.61% | 32.39% | 0.33% | 99.01% | 0.99% | 15.50% |
+## 실행과 상세 결과
 
-## Confusion Matrix
-
-각 행은 실제 클래스, 각 열은 예측 클래스입니다. 셀에는 이미지 수와 실제 클래스 내 비율을 함께 표시했습니다.
-
-![모델별 confusion matrix](docs/reports/rtmdet-vs-latest/confusion-matrices.png)
-
-## 해석 시 주의사항
-
-- 결과는 고유 이미지 372장(`computer` 200, `book` 71, `other` 101)의 이미지 단위 Top-1 평가입니다.
-- 모델 선정에 사용한 데이터와 같은 평가 세트이므로 새로운 이미지에 대한 일반화 성능은 별도 검증이 필요합니다.
-- ¹ RTMDet 5종의 지연은 같은 기존 실행 안에서 비교할 수 있습니다. 후보 모델은 프레임워크와 반복 횟수가 달라 RTMDet과의 속도 배수를 계산하지 않았습니다.
-- D-FINE-L과 LW-DETR은 Objects365 관련 가중치 권리를 확인해야 합니다. YOLOv13-L은 AGPL-3.0 준수 또는 별도 허가가 필요합니다.
-
-## 근거 자료
-
-- [전체 클래스 수치 CSV](docs/reports/rtmdet-vs-latest/class-metrics.csv)
-- [20개 모델 전체 집계](docs/reports/coco-extended-detectors/README.md)
-- [통합 수치 CSV](docs/reports/coco-extended-detectors/comparison.csv)
-- [평가 및 재현 방법](docs/coco-extended-detectors.md)
+- [실행 방법](docs/selected-topk2.md)
+- [상세 Top-k 보고서](docs/reports/selected-topk2/README.md)
+- [통합 수치 CSV](docs/reports/selected-topk2/comparison-with-rtmdet.csv)
+- [클래스별 수치 CSV](docs/reports/selected-topk2/class-metrics.csv)

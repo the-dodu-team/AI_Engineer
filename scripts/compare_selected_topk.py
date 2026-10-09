@@ -25,20 +25,12 @@ DISPLAY_NAMES = {
     "rtdetrv2-r50": "RT-DETRv2-R50",
     "rtdetrv2-r34": "RT-DETRv2-R34",
     "lw-detr-large": "LW-DETR Large",
-    "rtmdet-tiny": "RTMDet-tiny",
-    "rtmdet-s": "RTMDet-s",
-    "rtmdet-m": "RTMDet-m",
-    "rtmdet-l": "RTMDet-l",
     "rtmdet-x": "RTMDet-x",
 }
 SHORT_NAMES = {
     "rtdetrv2-r50": "RT-DETRv2-R50",
     "rtdetrv2-r34": "RT-DETRv2-R34",
     "lw-detr-large": "LW-DETR Large",
-    "rtmdet-tiny": "RTMDet-tiny",
-    "rtmdet-s": "RTMDet-s",
-    "rtmdet-m": "RTMDet-m",
-    "rtmdet-l": "RTMDet-l",
     "rtmdet-x": "RTMDet-x",
 }
 BLUE = "#2563EB"
@@ -168,9 +160,9 @@ def validate_predictions(model: str, rows: list[dict[str, str]], manifest: dict)
 
 def historical_rtmdet_rows(path: Path) -> list[dict]:
     rows = read_csv(path)
-    selected = [row for row in rows if row["model"].startswith("rtmdet-")]
+    selected = [row for row in rows if row["model"] == "rtmdet-x"]
     if not selected:
-        raise ValueError(f"No RTMDet rows in {path}")
+        raise ValueError(f"No RTMDet-x row in {path}")
     return [
         {
             "model": row["model"],
@@ -374,7 +366,7 @@ def save_top1_reference(output: Path, comparison_rows: list[dict]) -> None:
         axis.set_axisbelow(True)
         for spine in axis.spines.values():
             spine.set_visible(False)
-    fig.suptitle("Selected Top-1 vs Historical RTMDet", fontsize=21, fontweight="bold")
+    fig.suptitle("Selected Top-1 vs RTMDet-x", fontsize=21, fontweight="bold")
     fig.savefig(output / "top1-vs-rtmdet.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
@@ -456,9 +448,9 @@ def build_report(output: Path, comparison_rows: list[dict], selected_summaries: 
         "",
         "![FNR과 FPR 트레이드오프](fnr-fpr-tradeoff.png)",
         "",
-        "## 기존 RTMDet Top-1 기준",
+        "## RTMDet-x Top-1 기준",
         "",
-        "아래 수치는 현재 브랜치의 기존 372장 RTMDet 결과입니다. 선택 모델 실행은 같은 RTMDet 이미지 SHA-256 manifest와 일치할 때만 진행됩니다.",
+        "아래 수치는 동일한 372장에서 측정한 RTMDet-x Top-1 결과입니다. 선택 모델 실행은 같은 RTMDet 이미지 SHA-256 manifest와 일치할 때만 진행됩니다.",
         "",
         "| 모델 | 정확도 | FNR | FPR | CPU 지연 |",
         "|---|---:|---:|---:|---:|",
@@ -471,7 +463,7 @@ def build_report(output: Path, comparison_rows: list[dict], selected_summaries: 
 
     lines += [
         "",
-        "![선택 모델 Top-1과 RTMDet 비교](top1-vs-rtmdet.png)",
+        "![선택 모델 Top-1과 RTMDet-x 비교](top1-vs-rtmdet.png)",
         "",
         "## 평가 조건",
         "",

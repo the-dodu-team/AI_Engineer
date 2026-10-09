@@ -61,19 +61,15 @@ RT-DETRv2-R50, RT-DETRv2-R34, LW-DETR Large의 동일한 추론 점수에서 Top
 
 ![FNR과 FPR 트레이드오프](fnr-fpr-tradeoff.png)
 
-## 기존 RTMDet Top-1 기준
+## RTMDet-x Top-1 기준
 
-아래 수치는 현재 브랜치의 기존 372장 RTMDet 결과입니다. 선택 모델 실행은 같은 RTMDet 이미지 SHA-256 manifest와 일치할 때만 진행됩니다.
+아래 수치는 동일한 372장에서 측정한 RTMDet-x Top-1 결과입니다. 선택 모델 실행은 같은 RTMDet 이미지 SHA-256 manifest와 일치할 때만 진행됩니다.
 
 | 모델 | 정확도 | FNR | FPR | CPU 지연 |
 |---|---:|---:|---:|---:|
 | RTMDet-x | 94.09% | 7.75% | 0.99% | 1346.7 ms |
-| RTMDet-m | 93.01% | 9.59% | 0.00% | 481.1 ms |
-| RTMDet-l | 92.47% | 9.96% | 0.99% | 835.9 ms |
-| RTMDet-s | 90.59% | 12.18% | 1.98% | 251.7 ms |
-| RTMDet-tiny | 87.63% | 15.50% | 0.99% | 176.0 ms |
 
-![선택 모델 Top-1과 RTMDet 비교](top1-vs-rtmdet.png)
+![선택 모델 Top-1과 RTMDet-x 비교](top1-vs-rtmdet.png)
 
 ## 평가 조건
 
