@@ -1,5 +1,6 @@
 {
-  "selected_models": [
+  "models_compared": [
+    "rtmdet-x",
     "rtdetrv2-r50",
     "rtdetrv2-r34",
     "lw-detr-large"
@@ -7,9 +8,79 @@
   "threshold": 0.05,
   "inference_manifest_sha256": "d8a41cca9198273ac75e591a204f286e37a38af3945660b98ddb494ccb260368",
   "inference_run_sha256": "13d6e8c21031a4cb0f09cc4f9c0165f6eaa69024ac40f026c87a63f96b55394f",
-  "historical_rtmdet_source": "C:\\Users\\jgi01\\Desktop\\side_project\\docs\\reports\\coco-extended-detectors\\comparison.csv",
-  "historical_rtmdet_sha256": "75e809f3e0eb5aef264fc5d668f209eb56f9d04777edbc936bdad0ea0f9e7c69",
+  "rtmdet_predictions_source": "C:\\Users\\jgi01\\Desktop\\side_project\\outputs\\rtmdet\\model-size-20260927\\rtmdet-x\\predictions.csv",
+  "rtmdet_predictions_sha256": "3706f37d13638735b9323ffba94e5da7a100a7a41aece011d83800da1a74f2de",
+  "rtmdet_metrics_source": "C:\\Users\\jgi01\\Desktop\\side_project\\outputs\\rtmdet\\model-size-20260927\\rtmdet-x\\metrics.json",
+  "rtmdet_metrics_sha256": "f64dd20f4d5c1bf74d5c15a4f825b0db22d4e2a2378184894250ded0d1b50734",
   "models": {
+    "rtmdet-x": {
+      "top1": {
+        "top_k": 1,
+        "images": 372,
+        "truth_inclusion_rate": 0.9408602150537635,
+        "truth_included": 350,
+        "multiple_candidate_rate": 0.0,
+        "false_accepts": 1,
+        "negatives": 101,
+        "fpr": 0.009900990099009901,
+        "false_rejects": 21,
+        "positives": 271,
+        "fnr": 0.07749077490774908,
+        "expected_label_misses": 21,
+        "expected_label_fnr": 0.07749077490774908,
+        "class_metrics": {
+          "computer": {
+            "support": 200,
+            "tp": 189,
+            "fn": 11,
+            "fp": 0,
+            "fnr": 0.05500000000000005,
+            "fpr": 0.0
+          },
+          "book": {
+            "support": 71,
+            "tp": 61,
+            "fn": 10,
+            "fp": 1,
+            "fnr": 0.14084507042253525,
+            "fpr": 0.0033222591362126247
+          }
+        }
+      },
+      "top2": {
+        "top_k": 2,
+        "images": 372,
+        "truth_inclusion_rate": 0.9919354838709677,
+        "truth_included": 369,
+        "multiple_candidate_rate": 0.8413978494623656,
+        "false_accepts": 42,
+        "negatives": 101,
+        "fpr": 0.4158415841584158,
+        "false_rejects": 0,
+        "positives": 271,
+        "fnr": 0.0,
+        "expected_label_misses": 3,
+        "expected_label_fnr": 0.01107011070110701,
+        "class_metrics": {
+          "computer": {
+            "support": 200,
+            "tp": 197,
+            "fn": 3,
+            "fp": 14,
+            "fnr": 0.015000000000000013,
+            "fpr": 0.08139534883720931
+          },
+          "book": {
+            "support": 71,
+            "tp": 71,
+            "fn": 0,
+            "fp": 44,
+            "fnr": 0.0,
+            "fpr": 0.1461794019933555
+          }
+        }
+      }
+    },
     "rtdetrv2-r50": {
       "top1": {
         "top_k": 1,
@@ -31,9 +102,7 @@
             "tp": 195,
             "fn": 5,
             "fp": 0,
-            "recall": 0.975,
             "fnr": 0.025000000000000022,
-            "precision": 1.0,
             "fpr": 0.0
           },
           "book": {
@@ -41,9 +110,7 @@
             "tp": 61,
             "fn": 10,
             "fp": 1,
-            "recall": 0.8591549295774648,
             "fnr": 0.14084507042253525,
-            "precision": 0.9838709677419355,
             "fpr": 0.0033222591362126247
           }
         }
@@ -68,9 +135,7 @@
             "tp": 200,
             "fn": 0,
             "fp": 22,
-            "recall": 1.0,
             "fnr": 0.0,
-            "precision": 0.9009009009009009,
             "fpr": 0.12790697674418605
           },
           "book": {
@@ -78,9 +143,7 @@
             "tp": 71,
             "fn": 0,
             "fp": 46,
-            "recall": 1.0,
             "fnr": 0.0,
-            "precision": 0.6068376068376068,
             "fpr": 0.15282392026578073
           }
         }
@@ -107,9 +170,7 @@
             "tp": 191,
             "fn": 9,
             "fp": 0,
-            "recall": 0.955,
             "fnr": 0.04500000000000004,
-            "precision": 1.0,
             "fpr": 0.0
           },
           "book": {
@@ -117,9 +178,7 @@
             "tp": 58,
             "fn": 13,
             "fp": 1,
-            "recall": 0.8169014084507042,
             "fnr": 0.18309859154929575,
-            "precision": 0.9830508474576272,
             "fpr": 0.0033222591362126247
           }
         }
@@ -144,9 +203,7 @@
             "tp": 198,
             "fn": 2,
             "fp": 21,
-            "recall": 0.99,
             "fnr": 0.010000000000000009,
-            "precision": 0.9041095890410958,
             "fpr": 0.12209302325581395
           },
           "book": {
@@ -154,9 +211,7 @@
             "tp": 71,
             "fn": 0,
             "fp": 66,
-            "recall": 1.0,
             "fnr": 0.0,
-            "precision": 0.5182481751824818,
             "fpr": 0.21926910299003322
           }
         }
@@ -183,9 +238,7 @@
             "tp": 184,
             "fn": 16,
             "fp": 0,
-            "recall": 0.92,
             "fnr": 0.07999999999999996,
-            "precision": 1.0,
             "fpr": 0.0
           },
           "book": {
@@ -193,9 +246,7 @@
             "tp": 64,
             "fn": 7,
             "fp": 2,
-            "recall": 0.9014084507042254,
             "fnr": 0.09859154929577463,
-            "precision": 0.9696969696969697,
             "fpr": 0.006644518272425249
           }
         }
@@ -220,9 +271,7 @@
             "tp": 197,
             "fn": 3,
             "fp": 11,
-            "recall": 0.985,
             "fnr": 0.015000000000000013,
-            "precision": 0.9471153846153846,
             "fpr": 0.06395348837209303
           },
           "book": {
@@ -230,9 +279,7 @@
             "tp": 71,
             "fn": 0,
             "fp": 41,
-            "recall": 1.0,
             "fnr": 0.0,
-            "precision": 0.6339285714285714,
             "fpr": 0.1362126245847176
           }
         }

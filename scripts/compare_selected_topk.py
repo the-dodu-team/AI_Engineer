@@ -1,4 +1,4 @@
-"""Compare Top-1 and Top-2 for the three selected detectors.
+"""Compare Top-1 and Top-2 for RTMDet-x and three selected detectors.
 
 The input is produced by evaluate_extended_candidates.py and contains the
 maximum score for each task group.  Top-1 and Top-2 are therefore evaluated
@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GROUPS = ("computer", "book", "other")
 TARGET_GROUPS = ("computer", "book")
 SELECTED_MODELS = ("rtdetrv2-r50", "rtdetrv2-r34", "lw-detr-large")
+ALL_MODELS = ("rtmdet-x", *SELECTED_MODELS)
 DISPLAY_NAMES = {
     "rtdetrv2-r50": "RT-DETRv2-R50",
     "rtdetrv2-r34": "RT-DETRv2-R34",
@@ -116,15 +117,12 @@ def summarize(rows: Iterable[dict[str, str]], threshold: float, top_k: int) -> t
         actual_negative = [row for row in detail if row["true_label"] != group]
         tp = sum(group in row["accepted_labels"].split(";") for row in actual_positive)
         fp = sum(group in row["accepted_labels"].split(";") for row in actual_negative)
-        accepted_count = tp + fp
         class_metrics[group] = {
             "support": len(actual_positive),
             "tp": tp,
             "fn": len(actual_positive) - tp,
             "fp": fp,
-            "recall": tp / len(actual_positive) if actual_positive else 0.0,
             "fnr": 1 - tp / len(actual_positive) if actual_positive else 0.0,
-            "precision": tp / accepted_count if accepted_count else 0.0,
             "fpr": fp / len(actual_negative) if actual_negative else 0.0,
         }
 
@@ -156,29 +154,6 @@ def validate_predictions(model: str, rows: list[dict[str, str]], manifest: dict)
     actual = [(row["path"], row["true_label"]) for row in rows]
     if actual != expected:
         raise ValueError(f"{model} predictions do not match run.json order and labels")
-
-
-def historical_rtmdet_rows(path: Path) -> list[dict]:
-    rows = read_csv(path)
-    selected = [row for row in rows if row["model"] == "rtmdet-x"]
-    if not selected:
-        raise ValueError(f"No RTMDet-x row in {path}")
-    return [
-        {
-            "model": row["model"],
-            "display_name": DISPLAY_NAMES.get(row["model"], row["model"]),
-            "strategy": "historical Top-1",
-            "top_k": 1,
-            "images": int(row["images"]),
-            "truth_inclusion_rate": float(row["accuracy"]),
-            "fpr": float(row["fpr"]),
-            "fnr": float(row["fnr"]),
-            "expected_label_fnr": "",
-            "multiple_candidate_rate": 0.0,
-            "latency_ms": float(row["latency_ms"]),
-        }
-        for row in selected
-    ]
 
 
 def pct(value: float | str) -> str:
@@ -216,7 +191,7 @@ def label_bars(axis, bars, suffix="%") -> None:
 
 
 def save_topk_overview(output: Path, summaries: dict[str, dict]) -> None:
-    names = [SHORT_NAMES[model] for model in SELECTED_MODELS]
+    names = [SHORT_NAMES[model] for model in ALL_MODELS]
     x = np.arange(len(names))
     width = 0.34
     panels = [
@@ -226,8 +201,8 @@ def save_topk_overview(output: Path, summaries: dict[str, dict]) -> None:
     ]
     fig, axes = plt.subplots(1, 3, figsize=(19, 6.5), layout="constrained")
     for axis, (metric, title, limits, top2_color) in zip(axes, panels):
-        top1 = [summaries[model]["top1"][metric] * 100 for model in SELECTED_MODELS]
-        top2 = [summaries[model]["top2"][metric] * 100 for model in SELECTED_MODELS]
+        top1 = [summaries[model]["top1"][metric] * 100 for model in ALL_MODELS]
+        top2 = [summaries[model]["top2"][metric] * 100 for model in ALL_MODELS]
         bars1 = axis.bar(x - width / 2, top1, width, label="Top-1", color=BLUE)
         bars2 = axis.bar(x + width / 2, top2, width, label="Top-2", color=top2_color)
         axis.set_title(title, loc="left", fontsize=15, fontweight="bold")
@@ -241,16 +216,16 @@ def save_topk_overview(output: Path, summaries: dict[str, dict]) -> None:
         for spine in axis.spines.values():
             spine.set_visible(False)
     axes[0].legend(frameon=False, loc="lower right")
-    fig.suptitle("Selected Detectors: Top-1 vs Top-2", fontsize=22, fontweight="bold")
+    fig.suptitle("Four Detectors: Top-1 vs Top-2", fontsize=22, fontweight="bold")
     fig.savefig(output / "topk-overview.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
 def save_recovery_cost(output: Path, summaries: dict[str, dict]) -> None:
-    names = [SHORT_NAMES[model] for model in SELECTED_MODELS]
+    names = [SHORT_NAMES[model] for model in ALL_MODELS]
     recovered = []
     added_false_accepts = []
-    for model in SELECTED_MODELS:
+    for model in ALL_MODELS:
         top1, top2 = summaries[model]["top1"], summaries[model]["top2"]
         recovered.append(top2["truth_included"] - top1["truth_included"])
         added_false_accepts.append(top2["false_accepts"] - top1["false_accepts"])
@@ -278,15 +253,14 @@ def save_tradeoff(output: Path, comparison_rows: list[dict]) -> None:
     for axis, zoom in zip(axes, (False, True)):
         for row in comparison_rows:
             x, y = float(row["fpr"]) * 100, float(row["fnr"]) * 100
-            historical = row["strategy"].startswith("historical")
-            top2 = row["strategy"] == "selected Top-2"
-            color = SLATE if historical else RED if top2 else BLUE
-            marker = "s" if historical else "^" if top2 else "o"
+            top2 = int(row["top_k"]) == 2
+            color = RED if top2 else BLUE
+            marker = "s" if row["model"] == "rtmdet-x" else "^" if top2 else "o"
             axis.scatter(x, y, s=85, color=color, marker=marker, edgecolor="white", linewidth=.8, zorder=3)
             label = SHORT_NAMES.get(row["model"], row["model"])
-            if not historical:
-                label += " k2" if top2 else " k1"
-            axis.annotate(label, (x, y), xytext=(5, 5), textcoords="offset points", fontsize=8)
+            label += " k2" if top2 else " k1"
+            offset = (5, -14) if row["model"] == "rtmdet-x" and not top2 else (5, 5)
+            axis.annotate(label, (x, y), xytext=offset, textcoords="offset points", fontsize=8)
         axis.axvline(5, color=GREEN, linestyle="--", linewidth=1.2)
         axis.axhline(5, color=GREEN, linestyle="--", linewidth=1.2)
         axis.fill_between([0, 5], 0, 5, color=GREEN, alpha=.08)
@@ -294,7 +268,7 @@ def save_tradeoff(output: Path, comparison_rows: list[dict]) -> None:
         axis.set_ylabel("FNR (%) — lower is better")
         axis.grid(color=GRID, linewidth=.7)
         axis.set_axisbelow(True)
-        axis.set_title("Full range" if not zoom else "Top-1 / RTMDet zoom", loc="left", fontweight="bold")
+        axis.set_title("Full range" if not zoom else "Top-1 zoom", loc="left", fontweight="bold")
         if zoom:
             axis.set_xlim(-.2, 5.2)
             axis.set_ylim(-.5, 17)
@@ -310,8 +284,8 @@ def save_tradeoff(output: Path, comparison_rows: list[dict]) -> None:
 
 def save_class_heatmaps(output: Path, summaries: dict[str, dict]) -> None:
     row_labels = []
-    metric_rows = {metric: [] for metric in ("precision", "recall", "fnr", "fpr")}
-    for model in SELECTED_MODELS:
+    metric_rows = {metric: [] for metric in ("fnr", "fpr")}
+    for model in ALL_MODELS:
         for key in ("top1", "top2"):
             summary = summaries[model][key]
             row_labels.append(f"{SHORT_NAMES[model]} k{summary['top_k']}")
@@ -320,13 +294,11 @@ def save_class_heatmaps(output: Path, summaries: dict[str, dict]) -> None:
                     [summary["class_metrics"][group][metric] * 100 for group in TARGET_GROUPS]
                 )
     panels = [
-        ("precision", "Precision", "YlGnBu", 45, 100),
-        ("recall", "Recall", "YlGnBu", 75, 100),
-        ("fnr", "FNR", "YlOrRd", 0, 20),
+        ("fnr", "FNR", "YlOrRd", 0, 35),
         ("fpr", "FPR", "YlOrRd", 0, 25),
     ]
-    fig, axes = plt.subplots(2, 2, figsize=(13, 12), layout="constrained")
-    for axis, (metric, title, cmap, vmin, vmax) in zip(axes.flat, panels):
+    fig, axes = plt.subplots(1, 2, figsize=(14, 9), layout="constrained")
+    for axis, (metric, title, cmap, vmin, vmax) in zip(axes, panels):
         values = np.asarray(metric_rows[metric])
         image = axis.imshow(values, aspect="auto", cmap=cmap, vmin=vmin, vmax=vmax)
         axis.set_xticks(range(2), ["computer", "book"])
@@ -337,16 +309,16 @@ def save_class_heatmaps(output: Path, summaries: dict[str, dict]) -> None:
                 value = values[row_index, column_index]
                 axis.text(column_index, row_index, f"{value:.1f}%", ha="center", va="center", fontweight="bold")
         fig.colorbar(image, ax=axis, fraction=.046, pad=.04).set_label("Percent (%)")
-    fig.suptitle("Class-Level Top-k Metrics", fontsize=21, fontweight="bold")
+    fig.suptitle("Class-Level FNR and FPR", fontsize=21, fontweight="bold")
     fig.savefig(output / "class-metrics.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
 def save_top1_reference(output: Path, comparison_rows: list[dict]) -> None:
-    rows = [row for row in comparison_rows if row["strategy"] != "selected Top-2"]
+    rows = [row for row in comparison_rows if int(row["top_k"]) == 1]
     rows.sort(key=lambda row: float(row["truth_inclusion_rate"]))
     names = [SHORT_NAMES.get(row["model"], row["model"]) for row in rows]
-    colors = [BLUE if row["strategy"] == "selected Top-1" else SLATE for row in rows]
+    colors = [SLATE if row["model"] == "rtmdet-x" else BLUE for row in rows]
     accuracy = [float(row["truth_inclusion_rate"]) * 100 for row in rows]
     latency = [float(row["latency_ms"]) for row in rows]
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), layout="constrained")
@@ -371,116 +343,88 @@ def save_top1_reference(output: Path, comparison_rows: list[dict]) -> None:
     plt.close(fig)
 
 
-def build_report(output: Path, comparison_rows: list[dict], selected_summaries: dict[str, dict]) -> None:
-    selected_rows = [row for row in comparison_rows if row["strategy"].startswith("selected")]
-    rtmdet_rows = [row for row in comparison_rows if row["strategy"].startswith("historical")]
+def build_report(output: Path, comparison_rows: list[dict], summaries: dict[str, dict]) -> None:
+    metric_note = (
+        "<sub>FNR은 실제 대상(computer·book)을 대상 후보 없이 거절한 비율, FPR은 실제 other를 computer 또는 book 후보로 수락한 비율입니다. "
+        "CPU 지연은 이미지 읽기·모델 로딩을 제외한 전처리·추론·후처리 평균이며, 런타임과 반복 횟수가 달라 참고값으로만 비교합니다.</sub>"
+    )
+    class_metric_note = (
+        "<sub>클래스별 FNR은 해당 실제 클래스가 후보에 포함되지 않은 비율이며, 클래스별 FPR은 해당 클래스가 아닌 이미지에 "
+        "그 클래스를 후보로 잘못 포함한 비율입니다. CPU 지연은 이미지 읽기·모델 로딩을 제외한 전처리·추론·후처리 평균이며, "
+        "런타임과 반복 횟수가 달라 참고값으로만 비교합니다.</sub>"
+    )
     lines = [
-        "# 선택 모델 Top-1·Top-2 비교",
+        "# RTMDet-x와 선택 모델 Top-1·Top-2 비교",
         "",
-        "RT-DETRv2-R50, RT-DETRv2-R34, LW-DETR Large의 동일한 추론 점수에서 Top-1과 Top-2를 비교합니다.",
-        "이 실험은 사전학습 모델의 추론 후처리 비교이며 fine-tuning이나 가중치 갱신이 아닙니다.",
+        "RTMDet-x, RT-DETRv2-R50, RT-DETRv2-R34, LW-DETR Large를 동일한 고유 이미지 372장에서 비교합니다.",
+        "네 모델 모두 같은 그룹 임계값으로 Top-1과 Top-2를 계산했으며 추가 학습이나 fine-tuning은 수행하지 않았습니다.",
         "",
         "## 결론",
         "",
-        "- **자동 단일 판정은 RT-DETRv2-R50 Top-1이 가장 안정적**입니다: 정확도 95.70%, FNR 5.54%, FPR 0.99%.",
-        "- Top-2는 세 모델 모두 전체 FNR을 0%로 낮췄지만 FPR이 33.66~65.35%로 증가했습니다.",
-        "- Top-2 중에서는 **LW-DETR Large가 가장 낮은 FPR 33.66%**였지만 자동 승인에는 여전히 높습니다.",
-        "- 따라서 Top-2는 자동 판정보다 후속 분류기 또는 사용자 확인에 전달하는 recall 우선 shortlist로 사용하는 편이 적절합니다.",
+        "- **자동 단일 판정은 RT-DETRv2-R50 Top-1이 가장 안정적**입니다: 정답 포함률 95.70%, FNR 5.54%, FPR 0.99%.",
+        "- 네 모델 모두 Top-2에서 전체 FNR이 0%가 됐지만 FPR은 33.66~65.35%로 증가했습니다.",
+        "- Top-2 중 FPR은 LW-DETR Large 33.66%, RTMDet-x 41.58%, RT-DETRv2-R50 53.47%, RT-DETRv2-R34 65.35% 순입니다.",
+        "- 따라서 Top-2는 자동 승인보다 후속 분류기 또는 사용자 확인용 shortlist에 적합합니다.",
         "",
-        "![Top-1과 Top-2 핵심 지표](topk-overview.png)",
+        "![네 모델 Top-1과 Top-2 핵심 지표](topk-overview.png)",
         "",
-        "## 선택 모델 결과",
+        "## 전체 결과",
         "",
-        "전체 FNR은 대상 이미지에서 `computer` 또는 `book` 후보가 하나도 없는 비율이고, FPR은 `other` 이미지에 대상 후보가 하나 이상 포함된 비율입니다.",
-        "정답 포함률은 폴더 정답이 후보 집합 안에 존재하는 비율이므로 Top-2 단일 분류 정확도로 해석하면 안 됩니다.",
+        "정답 포함률은 실제 폴더 정답이 반환 후보 안에 존재하는 비율이며 Top-2 단일 분류 정확도가 아닙니다.",
         "",
-        "| 모델 | k | 정답 포함률 | 전체 FNR | 전체 FPR | 정답 클래스 FNR | 복수 후보율 |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| 모델 | k | 정답 포함 | 정답 포함률 | 전체 FNR | 전체 FPR | 복수 후보율 | CPU 지연 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for row in selected_rows:
-        lines.append(
-            f"| {row['display_name']} | {row['top_k']} | {pct(row['truth_inclusion_rate'])} | "
-            f"{pct(row['fnr'])} | {pct(row['fpr'])} | {pct(row['expected_label_fnr'])} | "
-            f"{pct(row['multiple_candidate_rate'])} |"
-        )
-
-    lines += [
-        "",
-        "## Top-2 변화",
-        "",
-        "| 모델 | 추가 정답 포함 | FNR 변화 | FPR 변화 |",
-        "|---|---:|---:|---:|",
-    ]
-    for model in SELECTED_MODELS:
-        top1, top2 = selected_summaries[model]["top1"], selected_summaries[model]["top2"]
+    row_lookup = {(row["model"], int(row["top_k"])): row for row in comparison_rows}
+    for model in ALL_MODELS:
+        for top_k in (1, 2):
+            row = row_lookup[model, top_k]
+            summary = summaries[model][f"top{top_k}"]
+            lines.append(
+                f"| {row['display_name']} | {top_k} | {summary['truth_included']}/{summary['images']} | "
+                f"{pct(row['truth_inclusion_rate'])} | {pct(row['fnr'])} | {pct(row['fpr'])} | "
+                f"{pct(row['multiple_candidate_rate'])} | {float(row['latency_ms']):.1f} ms |"
+            )
+    lines += ["", metric_note, "", "## Top-2 변화", "", "| 모델 | 추가 정답 포함 | 추가 오수락 | FNR 변화 | FPR 변화 |", "|---|---:|---:|---:|---:|"]
+    for model in ALL_MODELS:
+        top1, top2 = summaries[model]["top1"], summaries[model]["top2"]
         lines.append(
             f"| {DISPLAY_NAMES[model]} | +{top2['truth_included'] - top1['truth_included']} | "
-            f"{top1['fnr']:.2%} → {top2['fnr']:.2%} | {top1['fpr']:.2%} → {top2['fpr']:.2%} |"
+            f"+{top2['false_accepts'] - top1['false_accepts']} | {top1['fnr']:.2%} → {top2['fnr']:.2%} | "
+            f"{top1['fpr']:.2%} → {top2['fpr']:.2%} |"
         )
-
     lines += [
-        "",
-        "![Top-2 복구량과 오수락 비용](recovery-vs-cost.png)",
-        "",
-        "## 등록 클래스별 지표",
-        "",
-        "| 모델 | k | 클래스 | Precision | Recall | FNR | FPR |",
-        "|---|---:|---|---:|---:|---:|---:|",
+        "", metric_note, "", "![Top-2 복구량과 오수락 비용](recovery-vs-cost.png)", "",
+        "## 클래스별 FNR·FPR", "",
+        "| 모델 | k | Computer FNR | Computer FPR | Book FNR | Book FPR |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
-    for model in SELECTED_MODELS:
+    for model in ALL_MODELS:
         for key in ("top1", "top2"):
-            summary = selected_summaries[model][key]
-            for group in TARGET_GROUPS:
-                item = summary["class_metrics"][group]
-                lines.append(
-                    f"| {DISPLAY_NAMES[model]} | {summary['top_k']} | {group} | "
-                    f"{item['precision']:.2%} | {item['recall']:.2%} | "
-                    f"{item['fnr']:.2%} | {item['fpr']:.2%} |"
-                )
-
+            summary = summaries[model][key]
+            computer = summary["class_metrics"]["computer"]
+            book = summary["class_metrics"]["book"]
+            lines.append(
+                f"| {DISPLAY_NAMES[model]} | {summary['top_k']} | {computer['fnr']:.2%} | "
+                f"{computer['fpr']:.2%} | {book['fnr']:.2%} | {book['fpr']:.2%} |"
+            )
     lines += [
-        "",
-        "![클래스별 Top-k 지표](class-metrics.png)",
-        "",
-        "## FNR–FPR 트레이드오프",
-        "",
-        "왼쪽은 Top-2까지 포함한 전체 범위, 오른쪽은 Top-1과 RTMDet 결과를 확대한 그림입니다. 초록색 영역은 FNR·FPR이 모두 5% 이하인 목표 구간입니다.",
-        "",
-        "![FNR과 FPR 트레이드오프](fnr-fpr-tradeoff.png)",
-        "",
-        "## RTMDet-x Top-1 기준",
-        "",
-        "아래 수치는 동일한 372장에서 측정한 RTMDet-x Top-1 결과입니다. 선택 모델 실행은 같은 RTMDet 이미지 SHA-256 manifest와 일치할 때만 진행됩니다.",
-        "",
-        "| 모델 | 정확도 | FNR | FPR | CPU 지연 |",
-        "|---|---:|---:|---:|---:|",
-    ]
-    for row in sorted(rtmdet_rows, key=lambda item: float(item["truth_inclusion_rate"]), reverse=True):
-        lines.append(
-            f"| {row['display_name']} | {pct(row['truth_inclusion_rate'])} | {pct(row['fnr'])} | "
-            f"{pct(row['fpr'])} | {row['latency_ms']:.1f} ms |"
-        )
-
-    lines += [
-        "",
-        "![선택 모델 Top-1과 RTMDet-x 비교](top1-vs-rtmdet.png)",
-        "",
-        "## 평가 조건",
-        "",
+        "", class_metric_note, "", "![클래스별 FNR·FPR](class-metrics.png)", "",
+        "## FNR–FPR 트레이드오프", "",
+        "왼쪽은 Top-2까지 포함한 전체 범위, 오른쪽은 Top-1 구간을 확대한 그림입니다. 초록색 영역은 FNR·FPR이 모두 5% 이하인 목표 구간입니다.",
+        "", "![FNR과 FPR 트레이드오프](fnr-fpr-tradeoff.png)", "",
+        "## Top-1 정확도·CPU 지연", "", "![네 모델 Top-1 정확도와 CPU 지연](top1-vs-rtmdet.png)", "",
+        metric_note, "", "## 평가 조건", "",
         "- 고유 이미지 372장: computer 200, book 71, other 101",
         "- 그룹 임계값 0.05, 원시 탐지 하한 0.01, 입력 640 또는 체크포인트 기본 전처리",
-        "- CPU 10 threads, warm-up 5회, 이미지당 측정 1회",
-        "- 동일 이미지 manifest SHA-256을 기존 RTMDet 실행과 대조",
-        "",
-        "## 해석 주의사항",
-        "",
-        "- Top-2는 최대 두 후보를 반환하므로 정답 포함률과 recall은 구조적으로 상승할 수 있습니다.",
-        "- 자동 승인 정책에서는 FPR과 precision 악화 여부를 우선 확인해야 합니다.",
-        "- `정답 클래스 FNR`은 book을 computer로만 포함한 경우도 누락으로 계산하며, 전체 FNR보다 엄격한 지표입니다.",
-        "- 모델 선택에 이미 사용한 372장이므로 최종 정책과 임계값은 별도 검증 데이터에서 확정해야 합니다.",
-        "",
-        "산출물: [통합 CSV](comparison-with-rtmdet.csv) · [클래스별 CSV](class-metrics.csv) · [모델별 JSON](summary.json) · 모델별 `topk-predictions.csv`",
-        "",
+        "- CPU 10 threads, warm-up 5회",
+        "- 선택 모델은 이미지당 1회, RTMDet-x는 이미지당 3회 지연 측정",
+        "- 이미지 경로·정답 순서를 RTMDet-x와 선택 모델 manifest 사이에서 검증",
+        "", "## 해석 주의사항", "",
+        "- Top-2는 최대 두 후보를 반환하므로 정답 포함률이 구조적으로 상승할 수 있습니다.",
+        "- 자동 승인 정책에서는 FNR 감소와 함께 FPR 증가를 반드시 확인해야 합니다.",
+        "- 모델 선택에 이미 사용한 평가 세트이므로 최종 정책과 임계값은 별도 검증 데이터에서 확정해야 합니다.",
+        "", "산출물: [통합 CSV](comparison-with-rtmdet.csv) · [클래스별 CSV](class-metrics.csv) · [모델별 JSON](summary.json) · 모델별 `topk-predictions.csv`", "",
     ]
     (output / "README.md").write_text("\n".join(lines), encoding="utf-8")
 
@@ -490,13 +434,21 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True, help="Evaluation output containing run.json and model folders")
     parser.add_argument("--output", type=Path, default=ROOT / "docs/reports/selected-topk2")
     parser.add_argument(
-        "--rtmdet-comparison",
+        "--rtmdet-predictions",
         type=Path,
-        default=ROOT / "docs/reports/coco-extended-detectors/comparison.csv",
+        default=ROOT / "outputs/rtmdet/model-size-20260927/rtmdet-x/predictions.csv",
+    )
+    parser.add_argument(
+        "--rtmdet-metrics",
+        type=Path,
+        default=ROOT / "outputs/rtmdet/model-size-20260927/rtmdet-x/metrics.json",
     )
     args = parser.parse_args()
-    args.input, args.output, args.rtmdet_comparison = (
-        args.input.resolve(), args.output.resolve(), args.rtmdet_comparison.resolve()
+    args.input, args.output, args.rtmdet_predictions, args.rtmdet_metrics = (
+        args.input.resolve(),
+        args.output.resolve(),
+        args.rtmdet_predictions.resolve(),
+        args.rtmdet_metrics.resolve(),
     )
     manifest_path = args.input / "run.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -508,8 +460,15 @@ def main() -> None:
     summaries: dict[str, dict] = {}
     comparison_rows: list[dict] = []
     class_rows: list[dict] = []
-    for model in SELECTED_MODELS:
-        predictions_path = args.input / model / "predictions.csv"
+    model_sources = {
+        "rtmdet-x": (args.rtmdet_predictions, args.rtmdet_metrics),
+        **{
+            model: (args.input / model / "predictions.csv", args.input / model / "metrics.json")
+            for model in SELECTED_MODELS
+        },
+    }
+    for model in ALL_MODELS:
+        predictions_path, metrics_path = model_sources[model]
         rows = read_csv(predictions_path)
         validate_predictions(model, rows, manifest)
         top1, top1_detail = summarize(rows, threshold, 1)
@@ -545,8 +504,13 @@ def main() -> None:
                     }
                 )
 
-        latency = json.loads((args.input / model / "metrics.json").read_text(encoding="utf-8"))["mean_latency_ms"]
-        for label, summary in (("selected Top-1", top1), ("selected Top-2", top2)):
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        latency = (
+            metrics["runtime"]["latency_mean_ms"]
+            if model == "rtmdet-x"
+            else metrics["mean_latency_ms"]
+        )
+        for label, summary in (("Top-1", top1), ("Top-2", top2)):
             comparison_rows.append({
                 "model": model,
                 "display_name": DISPLAY_NAMES[model],
@@ -561,7 +525,6 @@ def main() -> None:
                 "latency_ms": latency,
             })
 
-    comparison_rows.extend(historical_rtmdet_rows(args.rtmdet_comparison))
     write_csv(args.output / "comparison-with-rtmdet.csv", comparison_rows)
     write_csv(args.output / "class-metrics.csv", class_rows)
     setup_plotting()
@@ -573,12 +536,14 @@ def main() -> None:
     write_json(
         args.output / "summary.json",
         {
-            "selected_models": SELECTED_MODELS,
+            "models_compared": ALL_MODELS,
             "threshold": threshold,
             "inference_manifest_sha256": manifest["manifest_sha256"],
             "inference_run_sha256": sha256(manifest_path),
-            "historical_rtmdet_source": str(args.rtmdet_comparison),
-            "historical_rtmdet_sha256": sha256(args.rtmdet_comparison),
+            "rtmdet_predictions_source": str(args.rtmdet_predictions),
+            "rtmdet_predictions_sha256": sha256(args.rtmdet_predictions),
+            "rtmdet_metrics_source": str(args.rtmdet_metrics),
+            "rtmdet_metrics_sha256": sha256(args.rtmdet_metrics),
             "models": summaries,
         },
     )
