@@ -1,0 +1,10 @@
+# Embedding verification experiments (embed_verify). Install into the same environment as requirements.txt.
+torch
+torchvision
+transformers>=5.0
+scikit-learn
+numpy
+pandas
+Pillow
+tqdm
+sentencepiece  # SigLIP image processor/tokenizer files
