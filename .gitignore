@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.log
+*.pid
+.env
+.venv/
+API_KEY.txt
+PUBLIC_URL.txt

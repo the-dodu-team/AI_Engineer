@@ -1,0 +1,139 @@
+name: Serve DINOv2 API
+
+# Starts the FastAPI server (uvicorn) on a GitHub-hosted runner and exposes it through ngrok.
+# Manual only: Actions tab > "Serve DINOv2 API" > Run workflow. It stays up for `duration_minutes`.
+on:
+  workflow_dispatch:
+    inputs:
+      duration_minutes:
+        description: "How long to keep the server up, in minutes (5-330)"
+        required: true
+        default: "120"
+
+permissions:
+  contents: read
+
+# One server at a time: the ngrok endpoint cannot be served twice.
+concurrency:
+  group: serve-dinov2-api
+  cancel-in-progress: false
+
+jobs:
+  serve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      DINOV2_ARTIFACT: ${{ github.workspace }}/artifacts/dinov2_base_prototypes.npz
+      DINOV2_DEVICE: cpu
+      DINOV2_API_KEY: ${{ secrets.DINOV2_API_KEY }}
+      NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      NGROK_DOMAIN: ${{ vars.NGROK_DOMAIN }}
+      DURATION_MINUTES: ${{ inputs.duration_minutes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets and input
+        run: |
+          missing=0
+          for name in DINOV2_API_KEY NGROK_AUTHTOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret $name is not set (Settings > Secrets and variables > Actions)"
+              missing=1
+            fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          case "$DURATION_MINUTES" in
+            ''|*[!0-9]*) echo "::error::duration_minutes must be a whole number"; exit 1 ;;
+          esac
+          if [ "$DURATION_MINUTES" -lt 5 ] || [ "$DURATION_MINUTES" -gt 330 ]; then
+            echo "::error::duration_minutes must be between 5 and 330"; exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies (CPU-only PyTorch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Cache DINOv2 weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-facebook-dinov2-base-v1
+
+      - name: Start FastAPI with uvicorn
+        run: |
+          nohup python -m uvicorn dinov2_api.app:app --host 127.0.0.1 --port 8000 --workers 1 > server.log 2>&1 &
+          echo $! > server.pid
+          for i in $(seq 1 180); do
+            if curl -fsS http://127.0.0.1:8000/health > /dev/null 2>&1; then
+              echo "server is up after about $((i * 2))s"; exit 0
+            fi
+            if ! kill -0 "$(cat server.pid)" 2> /dev/null; then
+              echo "::error::uvicorn exited"; tail -n 40 server.log; exit 1
+            fi
+            sleep 2
+          done
+          echo "::error::server did not become healthy in time"; tail -n 40 server.log; exit 1
+
+      - name: Smoke test on localhost
+        run: python scripts/smoke_test.py --base-url http://127.0.0.1:8000
+
+      - name: Install ngrok
+        run: |
+          curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar -xz -C "$RUNNER_TEMP"
+          sudo mv "$RUNNER_TEMP/ngrok" /usr/local/bin/ngrok
+          ngrok version
+
+      - name: Start ngrok tunnel
+        run: |
+          ngrok config add-authtoken "$NGROK_AUTHTOKEN" > /dev/null
+          args=()
+          if [ -n "$NGROK_DOMAIN" ]; then args=(--url="$NGROK_DOMAIN"); fi
+          nohup ngrok http 8000 "${args[@]}" --log=stdout --log-format=json > ngrok.log 2>&1 &
+          echo $! > ngrok.pid
+          url=""
+          for i in $(seq 1 40); do
+            url=$(curl -fsS http://127.0.0.1:4040/api/tunnels 2> /dev/null \
+              | python -c "import sys, json; t = json.load(sys.stdin)['tunnels']; print(next((x['public_url'] for x in t if x['public_url'].startswith('https')), ''))" 2> /dev/null || true)
+            [ -n "$url" ] && break
+            if ! kill -0 "$(cat ngrok.pid)" 2> /dev/null; then
+              echo "::error::ngrok exited"; grep -iE "err|fail" ngrok.log | tail -n 10; exit 1
+            fi
+            sleep 1
+          done
+          if [ -z "$url" ]; then echo "::error::could not read the ngrok URL"; exit 1; fi
+          echo "PUBLIC_URL=$url" >> "$GITHUB_ENV"
+          {
+            echo "### DINOv2 API is up"
+            echo ""
+            echo "- Base URL: \`$url\`"
+            echo "- Health: \`$url/health\`  ·  Docs: \`$url/docs\`"
+            echo "- Auth: send the repository secret \`DINOV2_API_KEY\` in the \`X-API-Key\` header"
+            echo "- Stays up for $DURATION_MINUTES minutes (or until the run is cancelled)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Base URL::$url"
+
+      - name: Smoke test through the public URL
+        run: python scripts/smoke_test.py --base-url "$PUBLIC_URL"
+
+      - name: Keep the server up
+        run: |
+          end=$(( $(date +%s) + DURATION_MINUTES * 60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            if ! kill -0 "$(cat server.pid)" 2> /dev/null; then
+              echo "::error::uvicorn stopped"; tail -n 40 server.log; exit 1
+            fi
+            if ! kill -0 "$(cat ngrok.pid)" 2> /dev/null; then
+              echo "::error::ngrok stopped"; grep -iE "err|fail" ngrok.log | tail -n 10; exit 1
+            fi
+            sleep 30
+          done
+          echo "Time is up; shutting down."
