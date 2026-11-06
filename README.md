@@ -17,6 +17,28 @@
 - 이미지는 1장당 최대 10 MiB이고 서버에 저장하지 않습니다.
 - 응답 예시: `{"model": "dinov2-base-prototype", "processing_ms": 123.4, "result": {"filename": "a.jpg", "prediction": "laptop"}}`
 
+## Vercel 배포 (컨테이너)
+
+PC가 꺼져 있어도 동작하도록 Vercel Container Runtime(베타)으로 배포합니다. 루트 `Dockerfile`이 이미지를 만들고 Vercel이 실행합니다. 코드는 로컬 실행과 같습니다.
+
+- **주소**: `https://dinov2-api-one.vercel.app` (Vercel 프로젝트 `dinov2-api`, 팀 GJ)
+- **자동 배포**: GitHub `main`에 푸시하면 운영 배포가 새로 만들어집니다(빌드 약 2분). 다른 브랜치는 미리보기 배포가 됩니다.
+- **환경변수**: Vercel 프로젝트의 `DINOV2_API_KEY`(Sensitive). 백엔드가 `X-API-Key` 헤더로 보내는 값과 같아야 합니다. 키를 바꾸려면 값을 수정하고 다시 배포하세요.
+- **모델**: DINOv2-base 가중치를 이미지에 넣어 두어서 시작할 때 다운로드하지 않습니다(`HF_HUB_OFFLINE=1`).
+
+**동작과 제한** (Hobby 플랜 기준, 실제 측정값)
+
+| 항목 | 내용 |
+|---|---|
+| 요청 크기 | **본문 4.5 MB 이하**. 넘으면 `413 FUNCTION_PAYLOAD_TOO_LARGE`. 배치는 이미지 합계가 4.5 MB 미만이어야 함 |
+| 콜드 스타트 | 5분 이상 요청이 없으면 서버가 쉬고, 다음 첫 요청이 **약 8초** 걸림 |
+| 일반 응답 | 이미지 1장 약 1.3초(서버 처리 약 0.5초 + 한국에서의 네트워크), 20장 배치 약 10초 |
+| 메모리 | 2 GB / 1 vCPU. 20장 배치까지 정상 처리 확인 |
+| 지역 | `iad1`(미국 동부) |
+| 최대 실행 시간 | 300초 |
+
+Hobby 플랜은 비상업·개인 용도 약관이 있습니다. 팀 서비스로 계속 쓸 때는 플랜을 확인하세요.
+
 ## 로컬 실행
 
 처음 실행할 때 Hugging Face에서 `facebook/dinov2-base`(약 350 MB)를 내려받습니다.

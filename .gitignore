@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 API_KEY.txt
 PUBLIC_URL.txt
+outputs/
