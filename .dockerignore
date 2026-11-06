@@ -1,0 +1,11 @@
+.git
+.github
+.env
+API_KEY.txt
+PUBLIC_URL.txt
+__pycache__/
+*.pyc
+*.log
+*.pid
+scripts/
+README.md
