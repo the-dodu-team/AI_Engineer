@@ -1,4 +1,4 @@
-"""Optional Supabase persistence for received images and predictions.
+"""Optional Supabase persistence of prediction records (no original images are stored).
 
 Enabled only when SUPABASE_URL and SUPABASE_SECRET_KEY are set. Failures are logged and never
 affect the API response.
@@ -15,8 +15,6 @@ import httpx
 log = logging.getLogger("dinov2_api.storage")
 
 MODEL_NAME = "dinov2-base-prototype"
-_EXT = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp", "GIF": "gif", "BMP": "bmp"}
-_MIME = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif", "bmp": "image/bmp"}
 
 
 @dataclass
@@ -31,8 +29,7 @@ class Upload:
 
 
 class SupabaseStore:
-    def __init__(self, url: str, key: str, bucket: str, source: str) -> None:
-        self.bucket = bucket
+    def __init__(self, url: str, key: str, source: str) -> None:
         self.source = source
         self.base = url.rstrip("/")
         self.headers = {"apikey": key, "Authorization": f"Bearer {key}"}
@@ -42,7 +39,7 @@ class SupabaseStore:
         url, key = os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SECRET_KEY")
         if not url or not key:
             return None
-        return cls(url, key, os.getenv("SUPABASE_BUCKET", "test-images"), os.getenv("SUPABASE_SOURCE", "ut_phone"))
+        return cls(url, key, os.getenv("SUPABASE_SOURCE", "ut_phone"))
 
     async def save(self, items: list[Upload]) -> None:
         try:
@@ -54,15 +51,6 @@ class SupabaseStore:
 
     async def _save_one(self, client: httpx.AsyncClient, item: Upload) -> None:
         sha = hashlib.sha256(item.data).hexdigest()
-        ext = _EXT.get((item.fmt or "").upper(), "jpg")
-        path = f"{sha[:2]}/{sha}.{ext}"
-        up = await client.post(
-            f"{self.base}/storage/v1/object/{self.bucket}/{path}",
-            content=item.data,
-            headers={"Content-Type": _MIME[ext], "x-upsert": "true"},
-        )
-        up.raise_for_status()
-
         found = await client.get(f"{self.base}/rest/v1/images", params={"sha256": f"eq.{sha}", "select": "id"})
         found.raise_for_status()
         rows = found.json()
@@ -72,7 +60,7 @@ class SupabaseStore:
             ins = await client.post(
                 f"{self.base}/rest/v1/images",
                 json={
-                    "sha256": sha, "bucket": self.bucket, "storage_path": path, "source": self.source,
+                    "sha256": sha, "source": self.source,
                     "width": item.width, "height": item.height, "size_bytes": len(item.data), "note": item.filename,
                 },
                 headers={"Prefer": "return=representation"},
